@@ -6,8 +6,8 @@
 
 read -p "Enter the node name: " node
 
-ip=$(cat ./hosts | grep "$node X"  | awk '{print $1;}')
-nod=$(cat ./hosts | grep "$node X" | awk '{print $2;}')
+ip=$(cat ./hosts | grep "$node "  | awk '{print $1;}')
+nod=$(cat ./hosts | grep "$node " | awk '{print $2;}')
 
 
 
@@ -19,8 +19,8 @@ read -p "Want to proceed? [y/n]: " confirm
 
 
 if [ "$confirm" == "y" ]; then
-		sed -i "/$nod X/d" hosts
-		sed -i "/$nod X/d" node.conf
+		sed -i "/$nod /d" hosts
+		sed -i "/$nod /d" node.conf
 	fi
 
 echo "$nod deleted successfully!!"

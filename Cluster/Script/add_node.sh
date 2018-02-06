@@ -15,8 +15,11 @@
 
 #read -p "Enter Network Getaway: " ip_search  ##Problem ask every time you add node##
 
-#add a variable in nmap
+#add a variable in nmaip
 ip_search=10.100.163.0
+
+#Path to the machine file
+machine_file_path=./
 
 ########### Generate ip_match ###############################
 
@@ -42,7 +45,7 @@ i=1
 
 while :
 do
-	if grep -q "node$i X" "hosts"; then
+	if grep -q "node$i " "hosts"; then
 		i=`expr $i + 1` #Increament for loop
 		#echo "Found!!"  #Uncomment for debug
 	else
@@ -70,9 +73,9 @@ else
 	#suggest default node name
 	echo "Found: IP = $ip ; MAC = $mac"
 	read -p "Enter the node number[Available: $node]: " node
-	echo "$ip $node X" >> hosts
+	echo "$ip $node " >> hosts
 	#/etc/dnsmasq.conf
-	echo "$node X" >> node.conf  ## Adding node in the machine file
+	echo "$node " >> $machine_file_path/node.conf  ## Adding node in the machine file
 fi
 
 
