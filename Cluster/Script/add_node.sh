@@ -16,7 +16,7 @@
 #read -p "Enter Network Getaway: " ip_search  ##Problem ask every time you add node##
 
 #add a variable in nmap
-ip_search=10.100.11.0
+ip_search=10.100.163.0
 
 ########### Generate ip_match ###############################
 
@@ -42,7 +42,7 @@ i=1
 
 while :
 do
-	if grep -q node$i "/etc/hosts"; then
+	if grep -q "node$i X" "hosts"; then
 		i=`expr $i + 1` #Increament for loop
 		#echo "Found!!"  #Uncomment for debug
 	else
@@ -70,9 +70,9 @@ else
 	#suggest default node name
 	echo "Found: IP = $ip ; MAC = $mac"
 	read -p "Enter the node number[Available: $node]: " node
-	echo "$ip node$node" >> /etc/hosts
+	echo "$ip $node X" >> hosts
 	#/etc/dnsmasq.conf
-	echo "node$node" >> /home/nlocluster/node.conf  ## Adding node in the machine file
+	echo "$node X" >> node.conf  ## Adding node in the machine file
 fi
 
 
