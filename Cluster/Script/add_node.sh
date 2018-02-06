@@ -29,7 +29,7 @@ ip_match="$A.$B"
 
 #################### Grab IP & MAC Adress ######################
 
-ip=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Address:/{print " "$3;}' | sort | grep $ip_match | head -1 | awk '{print $1;}') 
+ip=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Address:/{print " "$3;}' | sort | grep $ip_match | head -1 | awk '{print $1;}')
 
 
 mac=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Address:/{print " "$3;}' | sort | grep $ip_match | head -1 | awk '{print $2;}')
@@ -72,7 +72,7 @@ else
 	read -p "Enter the node number[Available: $node]: " node
 	echo "$ip node$node" >> /etc/hosts
 	#/etc/dnsmasq.conf
-	#machine-file
+	echo "node$node" >> /home/nlocluster/node.conf  ## Adding node in the machine file
 fi
 
 
