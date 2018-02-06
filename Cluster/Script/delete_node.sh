@@ -6,9 +6,20 @@
 
 read -p "Enter the node name: " node
 
-read -p "Warning!! Node: $node will be deleted! Want to proceed?[y/n]" confirm
+ip=$(cat /etc/hosts | grep $node | head -1 | awk '{print $1;}')
+nod=$(cat /etc/hosts | grep $node | head -1 | awk '{print $2;}')
+
+
+
+echo "Warning!! Following node will be deleted!!"
+
+echo -n
+echo "Node: $nod ; IP: $ip"
+read -p "Want to proceed? [y/n]: " confirm
 
 if [ "$confirm" == "y" ]; then
-		sed -i "/$node/d" /etc/hosts
-	fi
+		sed -i "/$ip/d" /etc/hosts
+fi
+
+echo "$nod deleted successfully!!"
 
