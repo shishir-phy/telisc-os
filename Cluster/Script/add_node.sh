@@ -72,6 +72,9 @@ else
 	read -p "Enter the node name[Default: $node_avail]: " node
 	if [ ! "$node" ]; then
 		node="$node_avail"
+    elif [[ $node == *['!'@#\$%^\&*()_+]* ]]; then
+        echo "Node name can't contain special character(!@#$%^&*()_+). Please try again!!"
+        exit 1
 	elif grep -q "$node " "/etc/hosts"; then
 		echo "Node name not available. Please try again!!"
 		exit 1
