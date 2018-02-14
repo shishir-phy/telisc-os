@@ -6,8 +6,8 @@
 
 read -p "Enter the node name: " node
 
-ip=$(cat ./hosts | grep "$node "  | awk '{print $1;}')
-nod=$(cat ./hosts | grep "$node " | awk '{print $2;}')
+ip=$(cat /etc/hosts | grep "$node "  | awk '{print $1;}')
+nod=$(cat /etc/hosts | grep "$node " | awk '{print $2;}')
 
 
 
@@ -19,8 +19,9 @@ read -p "Want to proceed? [y/n]: " confirm
 
 
 if [ "$confirm" == "y" ]; then
-		sed -i "/$nod /d" hosts
-		sed -i "/$nod /d" node.conf
+		sed -i "/$nod /d" /etc/hosts
+		sed -i "/$ip /d" /etc/dnsmasq.conf
+		sed -i "/$nod /d" /home/nlocluster/node.conf
+        echo "$nod deleted successfully!!"
 	fi
 
-echo "$nod deleted successfully!!"
