@@ -1,16 +1,13 @@
 #!/bin/sh
 
+## PLEASE RUN THIS SCRIPT TO ADD MASTER, WHEN ONLY THE MASTER NODE IS ON!!!
 
 # check for root
 [[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
 
-#ask for ip address
-read -p "Enter Network Getaway: " ip_search  
+echo "Searching for master node......."
 
-echo "$ip_search " >> /etc/gateway
-
-#add a variable in nmap
-#ip_search=192.168.0.0
+ip_search=192.168.0.0
 
 ########### Generate ip_match ###############################
 
@@ -32,10 +29,10 @@ mac=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Addre
 
 
 if [ ! "$mac" ] && [ ! "$ip" ]; then
-	echo "No device or node found!"
+	echo "No device or master found!"
 elif [ ! "$mac" ]; then
 	echo "$ip master" >> /etc/hosts
-	read -p "Master Found! Add master to node.conf?[y/n]: " master
+	read -p "Master Found! Add master to machine-file?[y/n]: " master
 	if [ "$master" == "y" ]; then
 		echo "master" >> /home/nlocluster/node.conf
     fi

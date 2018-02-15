@@ -1,19 +1,10 @@
 #!/bin/sh
 
-
-################################## TO-DO LIST #################################################
-#   1. Sort /etc/hosts file after ADD/DELETE node
-#
-#
-###############################################################################################
-
-
 # check for root
 [[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
 
-#ask for ip address
 
-#read -p "Enter Network Getaway: " ip_search  ##Problem ask every time you add node##
+echo "Searching for node......."
 
 #add a variable in nmap
 ip_search=192.168.0.0
@@ -61,11 +52,14 @@ node_avail="node$i"
 if [ ! "$mac" ] && [ ! "$ip" ]; then
 	echo "No device or node found!"
 elif [ ! "$mac" ]; then
-	echo "$ip master" >> /etc/hosts
-	read -p "Master Found! Add master to node.conf?[y/n]: " master
-	if [ "$master" == "y" ]; then
-		echo "master" >> /home/nlocluster/node.conf
+    if grep -q "master " "/etc/hosts"; then
+		echo "Error Occured. Please try again!!"
+		exit 1
+    else
+        echo "Please set your master first using add_master command."
+        exit 1
 	fi
+
 else
 	#suggest default node name
 	echo "Found: IP = $ip ; MAC = $mac"
