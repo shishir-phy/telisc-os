@@ -1,0 +1,120 @@
+#!/bin/bash
+# basic quick install script based on obarun manual install
+# ::preface install target device is mounted and has filesystems created to /mnt::
+#
+
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+
+########## Partitioning ##########
+lsblk
+read -p "Enter the name of the disk where to install TeLiSc:[ex: sda]: " disk_name
+
+read -p "Do you want to edit partitions? (y/n): " epart
+if [ $epart = "y" ]; then
+	cfdisk /dev/$disk_name
+fi
+
+lsblk
+
+read -p "Enter the name of the root partition:[ex: sda1]: " root_part_name
+
+
+read -p "Do you want a separate home partition? (y/n): " hpart
+if [ $hpart = "y" ]; then
+	read -p "Enter the name of the home partition:[ex: sda2]: " home_part_name
+fi
+
+read -p "Do you want a separate boot partition? (y/n): " bpart
+if [ $bpart = "y" ]; then
+	read -p "Enter the name of the boot partition:[ex: sda3]: " boot_part_name
+fi
+
+mkfs.ext4 /dev/$root_part_name
+
+mount /dev/$root_part_name /mnt
+
+if [ $hpart = "y" ]; then
+	mount /dev/$home_part_name /mnt/home
+fi
+
+if [ $bpart = "y" ]; then
+	mkdir /mnt/boot
+	mkfs.ext4 /dev/$boot_part_name
+	mount /dev/$boot_part_name /mnt/boot
+fi
+
+
+########## Partitioning ##########
+
+# Device mounted?
+if ! mountpoint -q /mnt; then
+    echo "Make sure target device is mounted..."
+    exit 1
+fi
+
+# Variables
+ACM="arch-chroot /mnt"
+ROOT_DEV=$(df | grep -w /mnt | awk {'print $1'})
+
+# copy live iso environment to /mnt (new install device)
+echo "Copy live root image to /mnt "
+cp -ax / /mnt
+
+# copy kernel to new install
+echo "Add kernel to new install..."
+cp -vaT /run/archiso/bootmnt/arch/boot/$(uname -m)/vmlinuz /mnt/boot/vmlinuz-linux
+  
+# generate fstab for new device
+echo "Create /etc/fstab..."
+genfstab -U -p /mnt > /mnt/etc/fstab
+
+# remake boot image
+echo "Rebuild boot image..."
+${ACM} /usr/bin/mkinitcpio -p linux
+
+#installing grub
+${ACM} grub-install /dev/$disk_name
+${ACM} grub-mkconfig -o /boot/grub/grub.cfg
+
+#ROOT PASSWORD
+
+  echo "ROOT PASSWORD"
+  echo "Enter your new root password"
+  ${ACM} "passwd"
+ 
+
+#setup host name
+  echo "HOSTNAME: "
+  echo "A host name is a unique name created to identify a machine on a network. Length is restricted to 63 characters."
+  read -p "Hostname [ex: telisc]: " host_name
+  echo ${host_name} > /mnt/etc/hostname
+
+#Adding user
+${ACM} tuseradd
+
+
+# clean up new install, basically removing archiso files that are needed live
+echo "Clean new install..."
+rm /mnt/etc/mkinitcpio-archiso.conf
+rm -r /mnt/etc/initcpio
+#rm /mnt/root/tinstall
+rm /mnt/root/.zshrc
+rm -Rf /mnt/root/boot
+rm -Rf /mnt/etc/systemd/system/getty@tty1.service.d/autologin.conf
+rm -Rf /mnt/opt/welcome
+rm -Rf /mnt/boot/syslinux
+rm -Rf /mnt/run/archiso
+umount /mnt
+
+echo "::Installation complete::"
+
+#Reboot?
+read -p "Do you want to REBOOT now? (y/n)" rboot
+if [ $rboot = "y" ]; then
+	reboot
+else
+	exit
+fi
