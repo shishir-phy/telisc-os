@@ -46,6 +46,12 @@ if [ $bpart = "y" ]; then
 	mount /dev/$boot_part_name /mnt/boot
 fi
 
+read -p "Enter the name of the clusterapps partition:[ex: sda4]: " cluster_part_name
+mkdir /mnt/clusterapps
+mkfs.ext4 /dev/$cluster_part_name
+mount /dev/$cluster_part_name /mnt/clusterapps
+
+
 
 ########## Partitioning ##########
 
@@ -107,6 +113,18 @@ rm -Rf /mnt/etc/systemd/system/getty@tty1.service.d/autologin.conf
 rm -Rf /mnt/opt/welcome
 rm -Rf /mnt/boot/syslinux
 rm -Rf /mnt/run/archiso
+
+
+if [ $hpart = "y" ]; then
+	umount /mnt/home
+fi
+
+if [ $bpart = "y" ]; then
+	umount /mnt/boot
+fi
+
+umount /mnt/clusterapps
+
 umount /mnt
 
 echo "::Installation complete::"
