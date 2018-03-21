@@ -1,0 +1,16 @@
+#!/bin/bash
+
+echo "USERNAME: "
+
+read -p "Enter username [ex: john]" user_name
+read -p "Want to add sudo privillage? (y/n)" su_user
+
+if [ $su_user = "y" ]; then
+	useradd -m -g users -G sudo -s /usr/bin/zsh ${user_name}
+else
+	useradd -m -g users -s /usr/bin/zsh ${user_name}
+fi
+
+passwd ${user_name} 
+
+

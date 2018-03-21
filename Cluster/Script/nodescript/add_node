@@ -74,10 +74,11 @@ else
 		exit 1
 	fi
 	echo "$ip $node " >> /etc/hosts
+	echo "$ip $node " >> /srv/nfsroot/etc/hosts
 	echo "dhcp-host=$mac,$ip " >> /etc/dnsmasq.conf
-	echo "$node " >> /home/nlocluster/node.conf  ## Adding node in the machine file
+	echo "$node " >> /etc/node.conf  ## Adding node in the machine file
 fi
 
-
+echo "DONE!!!"
 
 

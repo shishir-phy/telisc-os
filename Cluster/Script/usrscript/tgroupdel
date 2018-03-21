@@ -1,0 +1,10 @@
+#! /bin/bash
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+
+echo "Deleting group $1 ..."
+groupdel $1
+echo "DONE!!"
+

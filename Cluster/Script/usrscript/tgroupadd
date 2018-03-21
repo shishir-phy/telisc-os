@@ -1,0 +1,19 @@
+#! /bin/bash
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+
+function grpexists {
+if [ $(getent group $1) ]; then
+	echo "Group ${group_name} already exists!!!"
+else
+	groupadd ${group_name}
+	echo "Group ${group_name} added successfully!!!"
+fi
+}
+
+read -p "Enter groupname [ex. general]: " group_name
+
+grpexists ${group_name}
+

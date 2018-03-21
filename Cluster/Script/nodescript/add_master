@@ -32,8 +32,11 @@ if [ ! "$mac" ] && [ ! "$ip" ]; then
 	echo "No device or master found!"
 elif [ ! "$mac" ]; then
 	echo "$ip master" >> /etc/hosts
+	echo "$ip master" >> /srv/nfsroot/etc/hosts
 	read -p "Master Found! Add master to machine-file?[y/n]: " master
 	if [ "$master" == "y" ]; then
-		echo "master" >> /home/nlocluster/node.conf
+		echo "master" >> /etc/node.conf
     fi
 fi
+
+echo "DONE!!!"

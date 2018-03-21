@@ -1,0 +1,20 @@
+#! /bin/bash
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+ACM="arch-chroot /srv/nfsroot"
+
+if [ ! $($ACM echo "hello") ]; then
+	echo "Please make sure no one else is logged into chroot environment(/srv/nfsroot)."
+    exit 1
+fi
+
+
+echo "Deleting group $1 from master node..."
+groupdel $1
+echo "Deleting group $1 from slave nodes..."
+$ACM groupdel $1
+
+
+

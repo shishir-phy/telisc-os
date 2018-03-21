@@ -1,0 +1,42 @@
+#! /bin/bash
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+
+function grpexists {
+if [ $(getent group $1) ]; then
+	echo "Group ${group_name} already exists in master node!!!"
+	exit 1
+fi
+}
+function grpexists_slave {
+if [ $($ACM getent group $1) ]; then
+	echo "Group ${group_name} already exists in slave nodes!!!"
+	exit 1
+fi
+}
+
+ACM="arch-chroot /srv/nfsroot"
+
+echo "CLUSTER GROUP ADD "
+
+if [ ! $($ACM echo "hello") ]; then
+	echo "Please make sure no one else is logged into chroot environment(/srv/nfsroot)."
+    exit 1
+fi
+
+
+read -p "Enter groupname [ex. general]: " group_name
+
+grpexists ${group_name}
+grpexists_slave ${group_name}
+
+
+groupadd ${group_name}
+$ACM groupadd ${group_name}
+
+echo "DONE!!"
+
+
+
