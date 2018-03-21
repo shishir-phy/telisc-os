@@ -29,8 +29,15 @@ fi
 
 
 read -p "Enter username [ex: john]: " user_name
+read -p "Enter user ID [ex: 2001]: " user_id
 read -p "Enter groupname [ex: general]: " group_name
-read -p "Want to add sudo privillage? (y/n)" su_user
+
+#Checking for special characters
+if [[ $group_name == *['!'@#\$%^\&*()_+]* ]]; then
+    echo "Group name can't contain special character(!@#$%^&*()_+). Please try again!!"
+    exit 1
+fi
+
 
 for i in ${group_name//,/ }
 do
@@ -38,12 +45,14 @@ do
     grpexists_slave $i
 done
 
+read -p "Want to add sudo privillage? (y/n): " su_user
+
 if [ $su_user = "y" ]; then
-	useradd -m -g sudo -G ${group_name} -s /usr/bin/zsh ${user_name}
-	$ACM useradd -m -g sudo -G ${group_name} -s /usr/bin/zsh ${user_name}
+	useradd -m -u ${user_id} -g users -G sudo,${group_name} -s /usr/bin/zsh ${user_name}
+	$ACM useradd -m -u ${user_id} -g users -G sudo,${group_name} -s /usr/bin/zsh ${user_name}
 else
-	useradd -m -G ${group_name} -s /usr/bin/zsh ${user_name}
-	$ACM useradd -m -G ${group_name} -s /usr/bin/zsh ${user_name}
+	useradd -m -u ${user_id} -g users -G ${group_name} -s /usr/bin/zsh ${user_name}
+	$ACM useradd -m -u ${user_id} -g users -G ${group_name} -s /usr/bin/zsh ${user_name}
 fi
 
 passwd ${user_name} 
