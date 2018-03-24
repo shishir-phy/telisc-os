@@ -1,0 +1,16 @@
+#!/bin/bash
+
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+#Check for empty argument
+[[ -z $1 ]] && echo "::No chroot environment specified::" && exit 1
+
+umount $1/dev/shm
+umount $1/dev/pts
+umount $1/dev
+umount $1/sys
+umount $1/proc
+
+echo "DONE!!!"
