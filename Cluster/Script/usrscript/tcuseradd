@@ -5,16 +5,36 @@
 [[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
 
 function grpexists {
-if [ ! $(getent group $1) ]; then
-    echo "group $1 does not exist in master node."
-    exit 1
-fi
+	if [ ! $(getent group $1) ]; then
+		echo "group $1 does not exist in master node."
+		exit 1
+	fi
 }
 function grpexists_slave {
-if [ ! $($ACM getent group $1) ]; then
-    echo "group $1 does not exist in slave nodes."
-    exit 1
-fi
+	if [ ! $($ACM getent group $1) ]; then
+		echo "group $1 does not exist in slave nodes."
+		exit 1
+	fi
+}
+function create_home {
+	dd if=/dev/zero of=/hom/${user_name}.img bs=1M count=1024
+	mkfs.ext4 /hom/${user_name}.img
+	#chmod 700 /hom/${user_name}.img
+	mount /hom/${user_name}.img /home/${user_name}
+	cp -r /etc/skel/.ssh /home/${user_name}
+	cp -r /etc/skel/.tmux.conf /home/${user_name}
+	cp -r /etc/skel/.zshrc /home/${user_name}
+	chown -R ${user_name}:users /home/${user_name}
+	chmod -R 700 /home/${user_name}
+	$ACM chown -R ${user_name}:users /home/${user_name}
+	$ACM chmod -R 700 /home/${user_name}
+
+}
+
+function isdigit () {
+	[ $# -eq 1 ] || return 1;
+	[[ $1 = *[^0-9]* ]] && return 1
+	return 0
 }
 
 
@@ -29,7 +49,50 @@ fi
 
 
 read -p "Enter username [ex: john]: " user_name
-read -p "Enter user ID [ex: 2001]: " user_id
+
+#Checking for special characters in user name
+if [[ $user_name == *['!'@#\$%^\&*()_+]* ]]; then
+    echo "User name can't contain special character(!@#$%^&*()_+). Please try again!!"
+    exit 1
+fi
+#Checking for user name availibility in master node
+if [ $(getent passwd ${user_name}) ]; then
+	echo "User name ${user_name} already exists in master node. Please try again!!"
+	exit 1
+fi
+
+#Checking for user name availibility in slave node
+if [ $($ACM getent passwd ${user_name}) ]; then
+	echo "User name ${user_name} already exists in slave node. Please try again!!"
+	exit 1
+fi
+
+
+
+read -p "Enter user ID [ex: 3001]: " user_id
+
+#Checking for non-digit character in user id
+if isdigit $user_id; then
+	echo ; 
+else 
+	echo "User ID cannot contain non digit character. Please try again"
+	exit 1
+fi
+
+
+#Checking for user ID availibility in master node
+if [ $(getent passwd ${user_id}) ]; then
+	echo "User ID ${user_id} already exists in master node. Please try again!!"
+	exit 1
+fi
+
+#Checking for user ID availibility in slave node
+if [ $($ACM getent passwd ${user_id}) ]; then
+	echo "User ID ${user_id} already exists in slave node. Please try again!!"
+	exit 1
+fi
+
+
 read -p "Enter groupname [ex: general]: " group_name
 
 #Checking for special characters
@@ -37,8 +100,7 @@ if [[ $group_name == *['!'@#\$%^\&*()_+]* ]]; then
     echo "Group name can't contain special character(!@#$%^&*()_+). Please try again!!"
     exit 1
 fi
-
-
+#Checking for group availibility
 for i in ${group_name//,/ }
 do
     grpexists $i
@@ -46,13 +108,24 @@ do
 done
 
 read -p "Want to add sudo privillage? (y/n): " su_user
+read -p "How long the account will be valid for(in days)?[ex: 30] " expiry_time
+
+if isdigit $expiry_time; then
+	echo ; 
+else 
+	echo "Validity time must be a number in days. Please try again";
+	exit 1
+fi
+
 
 if [ $su_user = "y" ]; then
-	useradd -m -u ${user_id} -g users -G sudo,${group_name} -s /usr/bin/zsh ${user_name}
-	$ACM useradd -m -u ${user_id} -g users -G sudo,${group_name} -s /usr/bin/zsh ${user_name}
+	useradd -m -u ${user_id} -g users -G sudo,${group_name} -e `date -d "${expiry_time} days" +"%Y-%m-%d"` -s /usr/bin/zsh ${user_name}
+	$ACM useradd -m -u ${user_id} -g users -G sudo,${group_name} -e `date -d "${expiry_time} days" +"%Y-%m-%d"` -s /usr/bin/zsh ${user_name}
+	#create_home
 else
-	useradd -m -u ${user_id} -g users -G ${group_name} -s /usr/bin/zsh ${user_name}
-	$ACM useradd -m -u ${user_id} -g users -G ${group_name} -s /usr/bin/zsh ${user_name}
+	useradd -m -u ${user_id} -g users -G ${group_name} -e `date -d "${expiry_time} days" +"%Y-%m-%d"` -s /usr/bin/zsh ${user_name}
+	$ACM useradd -m -u ${user_id} -g users -G ${group_name} -e `date -d "${expiry_time} days" +"%Y-%m-%d"` -s /usr/bin/zsh ${user_name}
+	#create_home
 fi
 
 passwd ${user_name} 
