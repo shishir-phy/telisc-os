@@ -2,91 +2,107 @@
 
 while :
 do
-	trap "/usr/rbin/rshell; exit;" SIGINT
-read -p "$USER: " one two three four five
+    trap "echo ;/usr/rbin/rshell; exit;" SIGINT
+    #while true
+    #do
+    #        read -r -sn1 t
+    #        case $t in
+    #    	    A) tail -n 1 $HOME/.rshell_history ;;
+    #    	    B) echo down ;;
+    #    	    C) echo right ;;
+    #    	    D) echo left ;;
+    #        esac
+    #done
 
-err=0
+    pth=$(pwd)
+    read -ep "$USER:$pth $ " one two three four five
 
-function check_path { 
+    echo "$one $two $three $four $five" >> $HOME/.rshell_history
 
-    case "$1" in
-        /*)
-            echo "::restricted::"
-            err=1
-            ;;
-        ..*)
-            echo "::restricted::"
-            err=1
-            ;;
+    err=0
 
-    esac
-}
-function check_keyword { 
+    function check_path { 
 
-    case "$1" in
-        bash)
-            echo "::restricted::"
-            err=1
-            ;;
-        zsh)
-            echo "::restricted::"
-            err=1
-            ;;
-        ranger)
-            echo "::restricted::"
-            err=1
-            ;;
-        vim)
-            echo "::restricted::"
-            err=1
-            ;;
+	case "$1" in
+	    /*)
+		echo "::restricted::"
+		err=1
+		;;
+	    ..*)
+		echo "::restricted::"
+		err=1
+		;;
 
-        exit)
-            exit 0
-            ;;
+	    esac
+	}
+	function check_keyword { 
 
-    esac
-}
-function check_arguments {
-check_path $1
-check_keyword $1
+	    case "$1" in
+		bash)
+		    echo "::restricted::"
+		    err=1
+		    ;;
+		zsh)
+		    echo "::restricted::"
+		    err=1
+		    ;;
+		sh)
+		    echo "::restricted::"
+		    err=1
+		    ;;
+		ranger)
+		    echo "::restricted::"
+		    err=1
+		    ;;
+		vim)
+		    echo "::restricted::"
+		    err=1
+		    ;;
 
-}
+		exit)
+		    exit 0
+		    ;;
 
-#pth=$(pwd)
-#echo "PWD: $pth"
+		esac
+	    }
+	    function check_arguments {
+		check_path $1
+		check_keyword $1
 
-[[ -z $one ]] && continue
+	    }
 
-if [ $one == "cd" ] ; then
-    case "$two+x" in
-        x)
-            cd 
-            ;;
-        *)
-            cd $two
-            ;;
-    esac
-    continue
-fi
+	    #pth=$(pwd)
+	    #echo "PWD: $pth"
 
+	    [[ -z $one ]] && continue
 
-check_arguments $one
-check_arguments $two
-check_arguments $three
-check_arguments $four
-check_arguments $five
+	    check_arguments $one
+	    check_arguments $two
+	    check_arguments $three
+	    check_arguments $four
+	    check_arguments $five
 
-[[ $err -eq 1 ]] && continue
-
-/usr/bin/bash -c "$one $two $three $four $five"
-
-
-
-done
-
+	    [[ $err -eq 1 ]] && continue
 
 
+	    if [ $one == "cd" ] ; then
+		case "$two+x" in
+		    x)
+			cd 
+			;;
+		    *)
+			cd $two
+			;;
+		esac
+		continue
+	    fi
 
 
-echo "DONE"
+	    /usr/bin/bash -c "$one $two $three $four $five"
+
+
+
+	done
+
+
+
