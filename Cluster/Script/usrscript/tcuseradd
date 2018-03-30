@@ -131,4 +131,9 @@ fi
 passwd ${user_name} 
 $ACM passwd ${user_name} 
 
+#SSH-KEY-SETTINGS
+ssh-keygen -t rsa -f /home/$user_name/.ssh/id_rsa -q -N ""
+cp /home/$user_name/.ssh/id_rsa.pub /home/$user_name/.ssh/authorized_keys
+chown -R $user_name:users /home/$user_name/.ssh
+
 echo "DONE!!"
