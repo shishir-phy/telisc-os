@@ -4,6 +4,7 @@
 [[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
 
 
+
 echo "Searching for node......."
 
 #add a variable in nmap
@@ -26,6 +27,38 @@ ip=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Addres
 mac=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Address:/{print " "$3;}' | sort | grep $ip_match | head -1 | awk '{print $2;}')
 
 ###############################################################
+function check_ssh {
+	if ssh $ip echo; then
+		echo 	
+	else
+		echo "ssh is not ready yet! Please try again after some times."
+		exit 1
+	fi
+
+}
+
+function slurm_setup {
+	ssh $1 /usr/bin/hname #setting hostname in new node
+	SMD=$(ssh $ip slurmd -C) #grubing slurm.conf configuration for new node
+	A=$(echo "$SMD" | awk '{print $1;}')
+	B=$(echo "$SMD" | awk '{print $2;}')
+	C=$(echo "$SMD" | awk '{print $3;}')
+	D=$(echo "$SMD" | awk '{print $4;}')
+	E=$(echo "$SMD" | awk '{print $5;}')
+	F=$(echo "$SMD" | awk '{print $6;}')
+	G=$(echo "$SMD" | awk '{print $7;}')
+	#echo "A=$A"
+	TXT=$(echo "NodeName=$1 NodeAddr=$ip $B $C $D $E $F $G")
+	#echo $TXT
+	sed -i "/PartitionName=/i$TXT" /etc/slurm/slurm.conf
+	sed -i "/PartitionName=/i$TXT" /srv/nfsroot/etc/slurm/slurm.conf
+	systemctl restart slurmctld.service
+	ssh $1 systemctl restart slurmd.service
+	scontrol reconfigure
+
+}
+
+
 
 ######### Check for Available Node #############################
 
@@ -61,6 +94,7 @@ elif [ ! "$mac" ]; then
 	fi
 
 else
+	check_ssh
 	#suggest default node name
 	echo "Found: IP = $ip ; MAC = $mac"
 	read -p "Enter the node name[Default: $node_avail]: " node
@@ -76,7 +110,8 @@ else
 	echo "$ip $node " >> /etc/hosts
 	echo "$ip $node " >> /srv/nfsroot/etc/hosts
 	echo "dhcp-host=$mac,$ip " >> /etc/dnsmasq.conf
-	echo "$node " >> /etc/node.conf  ## Adding node in the machine file
+	slurm_setup $node
+	#echo "$node " >> /etc/node.conf  ## Adding node in the machine file
 fi
 
 echo "DONE!!!"

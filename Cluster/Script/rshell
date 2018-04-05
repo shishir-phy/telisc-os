@@ -14,7 +14,7 @@ do
     #        esac
     #done
 
-    pth=$(pwd)
+    pth=$(pwd | tr "/" "\n" | tail -n 1)
     read -ep "$USER:$pth $ " one two three four five
 
     echo "$one $two $three $four $five" >> $HOME/.rshell_history
@@ -28,6 +28,10 @@ do
 		echo "::restricted::"
 		err=1
 		;;
+    ./*)
+        echo "::restricted::"
+        err=1
+        ;;
 	    ..*)
 		echo "::restricted::"
 		err=1
@@ -54,10 +58,10 @@ do
 		    echo "::restricted::"
 		    err=1
 		    ;;
-		vim)
-		    echo "::restricted::"
-		    err=1
-		    ;;
+		#vim)
+		#    echo "::restricted::"
+		#    err=1
+		#    ;;
 
 		exit)
 		    exit 0
@@ -75,6 +79,30 @@ do
 	    #echo "PWD: $pth"
 
 	    [[ -z $one ]] && continue
+
+        if [ $one == "sbatch" ] ; then
+            case "$three+x" in
+                x)
+                    case "$two+x" in
+                        x)
+                            echo "No Job Script Specified!! Please try again." 
+                            ;;
+                        ./*)
+                            sbatch $two
+                            ;;
+                        /*)
+                            echo "::restriced::"
+                            ;;
+                        *)
+                            echo "Error:sbatch:: sbatch argument must begin with ./"
+                    esac
+                    ;;
+                *)
+                    echo "Error:sbatch:: sbatch cannot have multiple argument!!"
+                    continue
+            esac
+            continue
+        fi
 
 	    check_arguments $one
 	    check_arguments $two
@@ -96,6 +124,19 @@ do
 		esac
 		continue
 	    fi
+
+        if [ $one == "vim" ] ; then
+		case "$two+x" in
+		    x)
+			echo "Error:vim:: No file name specified." 
+			;;
+		    *)
+			vim $two
+			;;
+		esac
+		continue
+	    fi
+
 
 
 	    /usr/bin/bash -c "$one $two $three $four $five"
