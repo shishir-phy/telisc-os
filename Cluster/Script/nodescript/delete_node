@@ -29,7 +29,11 @@ else
         sed -i "/$nod /d" /etc/hosts
         sed -i "/$nod /d" /srv/nfsroot/etc/hosts
         sed -i "/$ip /d" /etc/dnsmasq.conf
-        sed -i "/$nod /d" /etc/node.conf
+        sed -i "/$nod /d" /etc/slurm/slurm.conf
+        sed -i "/$nod /d" /srv/nfsroot/etc/slurm/slurm.conf
+        systemctl restart slurmctld.service
+        scontrol reconfigure
+        #sed -i "/$nod /d" /etc/node.conf
         echo "$nod deleted successfully!!"
     else
         echo "Node not deleted. Please try again!!"

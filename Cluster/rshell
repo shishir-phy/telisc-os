@@ -1,0 +1,196 @@
+
+
+set -o vi
+#bind '"\e[A":"tail -n 1 ~/.history"'
+
+#alias history='cat ~/.bash_history'
+
+#Color variable
+red=`tput setaf 1`
+green=`tput setaf 2`
+blue=`tput setaf 4`
+reset=`tput sgr0`
+
+#Other Text formating variable
+bold=`tput bold`
+
+#echo "${red}red text ${green}green text${reset}"
+
+
+export HISTFILE="$HOME/.bash_history"
+export HISTIGNORE="*"
+#HISTCONTROL=ignoreboth
+#HISTSIZE=1000
+#shopt -s histappend     
+#PROMPT_COMMAND="history -a; history -c; history -r; $PROMPT_COMMAND"
+
+
+set -o history
+
+while :
+do
+    trap "/usr/rbin/rshell; exit;" SIGINT
+   
+    pth=$(pwd | tr "/" "\n" | tail -n 1)
+    read -ep "${bold}$USER:${blue}$pth${reset} $ " one two three four five
+
+	    [[ -z $one ]] && continue || echo "$one $two $three $four $five" >> $HOME/.bash_history
+
+        sed -i 's/[[:blank:]]*$//' $HOME/.bash_history 
+        err=0
+
+        function check_path { 
+
+            case "$1" in
+                /*)
+                  echo "::restricted::"
+                  err=1
+                  ;;
+            ./*)
+                  echo "::restricted::"
+        err=1
+        ;;
+	    ..*)
+		echo "::restricted::"
+		err=1
+		;;
+
+	    esac
+	}
+	function check_keyword { 
+
+	    case "$1" in
+		bash)
+		    echo "::restricted::"
+		    err=1
+		    ;;
+		zsh)
+		    echo "::restricted::"
+		    err=1
+		    ;;
+		sh)
+		    echo "::restricted::"
+		    err=1
+		    ;;
+		ranger)
+		    echo "::restricted::"
+		    err=1
+		    ;;
+		#vim)
+		#    echo "::restricted::"
+		#    err=1
+		#    ;;
+
+		exit)
+		    exit 0
+		    ;;
+
+		esac
+	    }
+	    function check_arguments {
+            check_path $1
+            check_keyword $1
+
+	    }
+        function check_dir {
+            case "$2+x" in
+                +x)
+                    if [[ -d $1 ]]; then
+                        echo "${bold}${blue}$1${reset}"
+                    elif [[ -f $1 ]]; then
+                        echo "${green}$1${reset}"
+                    else
+                        echo $1
+                    fi
+                    ;;
+                *)
+                    if [[ -d $2/$1 ]]; then
+                        echo "${bold}${blue}$1${reset}"
+                    elif [[ -f $2/$1 ]]; then
+                        echo "${green}$1${reset}"
+                    else
+                        echo $1
+                    fi
+            esac
+
+        }
+
+        
+        
+
+        if [ $one == "sbatch" ] ; then
+            case "$three+x" in
+                x)
+                    case "$two+x" in
+                        x)
+                            echo "No Job Script Specified!! Please try again." 
+                            ;;
+                        ./*)
+                            sbatch $two
+                            ;;
+                        /*)
+                            echo "::restriced::"
+                            ;;
+                        *)
+                            echo "Error:sbatch:: sbatch argument must begin with ./"
+                    esac
+                    ;;
+                *)
+                    echo "Error:sbatch:: sbatch cannot have multiple argument!!"
+                    continue
+            esac
+            kill -SIGINT $$
+        fi
+
+	    check_arguments $one
+	    check_arguments $two
+	    check_arguments $three
+	    check_arguments $four
+	    check_arguments $five
+
+	    [[ $err -eq 1 ]] && kill -SIGINT $$
+
+
+	    if [ $one == "cd" ] ; then
+		case "$two+x" in
+		    x)
+			cd 
+			;;
+		    *)
+			cd $two
+			;;
+		esac
+        kill -SIGINT $$
+	    fi
+
+        if [ $one == "ls" ] ; then
+            case "$three+x" in
+                +x)
+                    case "$two+x" in
+                        +x)
+                            ls -1 $two $three > /tmp/ls_out
+                            while read line; do check_dir "$line"; done< /tmp/ls_out
+                            ;;
+                        *)
+                            ls -1 $two $three > /tmp/ls_out
+                            while read line; do check_dir "$line" "$two"; done< /tmp/ls_out
+                            esac
+                            ;;
+                        *)
+                            ls -1 $two $three > /tmp/ls_out
+                            while read line; do check_dir "$line" "$three"; done< /tmp/ls_out
+                        esac
+                        kill -SIGINT $$
+                    fi
+
+
+
+	    /usr/bin/bash -c "$one $two $three $four $five"
+
+        kill -SIGINT $$
+
+
+	done
+
+
+

@@ -26,16 +26,37 @@ ip=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Addres
 mac=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Address:/{print " "$3;}' | sort | grep $ip_match | head -1 | awk '{print $2;}')
 
 ###############################################################
+function slurm_setup {
+	/usr/bin/hname #setting hostname in new node
+	SMD=$(slurmd -C) #grubing slurm.conf configuration for new node
+	A=$(echo "$SMD" | awk '{print $1;}')
+	B=$(echo "$SMD" | awk '{print $2;}')
+	C=$(echo "$SMD" | awk '{print $3;}')
+	D=$(echo "$SMD" | awk '{print $4;}')
+	E=$(echo "$SMD" | awk '{print $5;}')
+	F=$(echo "$SMD" | awk '{print $6;}')
+	G=$(echo "$SMD" | awk '{print $7;}')
+	#echo "A=$A"
+	TXT=$(echo "NodeName=$1 NodeAddr=$ip $B $C $D $E $F $G")
+	#echo $TXT
+	sed -i "/PartitionName=/i$TXT" /etc/slurm/slurm.conf
+	sed -i "/PartitionName=/i$TXT" /srv/nfsroot/etc/slurm/slurm.conf
+	systemctl restart slurmctld.service
+	systemctl restart slurmd.service
+	scontrol reconfigure
+
+}
+
 
 
 if [ ! "$mac" ] && [ ! "$ip" ]; then
 	echo "No device or master found!"
 elif [ ! "$mac" ]; then
-	echo "$ip master" >> /etc/hosts
-	echo "$ip master" >> /srv/nfsroot/etc/hosts
-	read -p "Master Found! Add master to machine-file?[y/n]: " master
+	read -p "Master Found! Add master?[y/n]: " master
 	if [ "$master" == "y" ]; then
-		echo "master" >> /etc/node.conf
+        echo "$ip master" >> /etc/hosts
+        echo "$ip master" >> /srv/nfsroot/etc/hosts
+        slurm_setup master
     fi
 fi
 

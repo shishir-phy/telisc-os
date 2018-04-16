@@ -16,5 +16,5 @@ userdel -r $1
 echo "Deleting user $1 from slave nodes..."
 $ACM userdel -r $1
 
-
+echo "DONE!!!"
 
