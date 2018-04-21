@@ -86,7 +86,7 @@ echo "Formatting partitions..."
 
 mkfs.fat -F 32 /dev/${disk}1
 
-for i in {2..17}
+for i in {2..15}
 do
    mkfs.btrfs -f /dev/${disk}$i
 done
