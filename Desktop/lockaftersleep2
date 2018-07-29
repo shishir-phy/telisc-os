@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function do_lock () {
-    lock_grep=$(ps -A | grep "i3lock " | awk '{print $1}')
+    lock_grep=$(ps -A | grep "i3lock" | awk '{print $1}')
     if [[ -z $lock_grep ]]; then
         echo "locking the screen"
         /usr/bin/lock
@@ -10,7 +10,7 @@ function do_lock () {
     fi
 }
 
-dup_lockaftersleep=$(ps -A | grep "lockaftersleep " | wc -l)
+dup_lockaftersleep=$(ps -A | grep "lockaftersleep" | wc -l)
 
 [[ $dup_lockaftersleep -gt 2 ]] && exit
 
@@ -60,6 +60,13 @@ do
         uhour=`expr $hour + 24`
     fi
 
+    [[ $uhour -lt 10 ]] && uhour=$(echo "0$uhour")
+    [[ $umin -lt 10 ]] && umin=$(echo "0$umin")
+    [[ $usec -lt 10 ]] && usec=$(echo "0$usec")
+    [[ $phour -lt 10 ]] && phour=$(echo "0$phour")
+    [[ $pmin -lt 10 ]] && pmin=$(echo "0$pmin")
+    [[ $psec -lt 10 ]] && psec=$(echo "0$psec")
+    
     utime=$(echo $uhour$umin$usec)
     ptime=$(echo $phour$pmin$psec)
 

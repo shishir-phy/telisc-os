@@ -10,10 +10,12 @@ do
 
     echo "$stt"
     if [ ! -z "$stt" ]; then
-        echo "RUNNING"
+        date >> /tmp/autolock_log.txt
+        echo "RUNNING" >> /tmp/autolock_log.txt
         pkill xautolock
     else
-        echo "CLOSED"
+        date >> /tmp/autolock_log.txt
+        echo "CLOSED" >> /tmp/autolock_log.txt
         if [ ! $(pidof xautolock) ]; then
             xautolock -time $1 -locker lock &
         fi
