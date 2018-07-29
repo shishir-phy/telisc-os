@@ -3,6 +3,8 @@
 set -o vi
 #bind '"\e[A":"tail -n 1 ~/.history"'
 
+source /etc/profile.d/z00_lmod.sh
+
 #alias history='cat ~/.bash_history'
 
 #Color variable
@@ -29,7 +31,7 @@ set -o history
 
 while :
 do
-    trap "/usr/rbin/rshell; exit;" SIGINT
+    #trap "echo ;/home/shishir/Projects/telisc-os/Cluster/rshell; exit;" SIGINT
    
     pth=$(pwd | tr "/" "\n" | tail -n 1)
     read -ep "${bold}$USER:${blue}$pth${reset} $ " one two three four five
@@ -139,7 +141,8 @@ do
                     echo "Error:sbatch:: sbatch cannot have multiple argument!!"
                     continue
             esac
-            kill -SIGINT $$
+            continue
+            #kill -SIGINT $$
         fi
 
 	    check_arguments $one
@@ -148,7 +151,7 @@ do
 	    check_arguments $four
 	    check_arguments $five
 
-	    [[ $err -eq 1 ]] && kill -SIGINT $$
+	    [[ $err -eq 1 ]] && continue #kill -SIGINT $$
 
 
 	    if [ $one == "cd" ] ; then
@@ -160,7 +163,8 @@ do
 			cd $two
 			;;
 		esac
-        kill -SIGINT $$
+        continue
+        #kill -SIGINT $$
 	    fi
 
         if [ $one == "ls" ] ; then
@@ -180,14 +184,16 @@ do
                             ls -1 $two $three > /tmp/ls_out
                             while read line; do check_dir "$line" "$three"; done< /tmp/ls_out
                         esac
-                        kill -SIGINT $$
+                        continue
+                        #kill -SIGINT $$
                     fi
 
 
 
-	    /usr/bin/bash -c "$one $two $three $four $five"
+	    #/usr/bin/bash -c "$one $two $three $four $five"
+	    $one $two $three $four $five
 
-        kill -SIGINT $$
+        #kill -SIGINT $$
 
 
 	done

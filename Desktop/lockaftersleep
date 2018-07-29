@@ -1,0 +1,37 @@
+#!/bin/bash
+
+time_var=$(date | awk '{print $4}')
+#echo $time_var | sed 's/:/\n/g'
+strp1=$(echo $time_var | cut -d':' -f1)
+strp2=$(echo $time_var | cut -d':' -f2)
+strp3=$(echo $time_var | cut -d':' -f3)
+sleep 3
+
+while :
+do
+    time_var=$(date | awk '{print $4}')
+    #echo $time_var | sed 's/:/\n/g'
+    str1=$(echo $time_var | cut -d':' -f1)
+    str2=$(echo $time_var | cut -d':' -f2)
+    str3=$(echo $time_var | cut -d':' -f3)
+    ustr3=`expr $str3 - 3`
+    if [[ $ustr3 -lt 0  ]]; then
+        ustr3=`expr $ustr3 + 60`
+    fi
+    diff=`expr $ustr3 - $strp3`
+
+    #echo $strp3 $ustr3 $diff
+    if [[ $diff -lt 2 ]]; then
+        echo "MATCH"
+    else
+        /usr/bin/lock
+        echo "NOT MATCH"
+    fi
+
+    sleep 3
+    strp1=$(echo $str1)
+    strp2=$(echo $str2)
+    strp3=$(echo $str3)
+
+    strp3=`expr $strp3 + 0`
+done

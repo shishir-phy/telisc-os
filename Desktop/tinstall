@@ -1,0 +1,619 @@
+#!/bin/bash
+# basic quick install script based on obarun manual install
+# ::preface install target device is mounted and has filesystems created to /mnt::
+#
+
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+# Variables
+ACM="arch-chroot /mnt"
+ROOT_DEV=$(df | grep -w /mnt | awk {'print $1'})
+
+####### FUNCTIONS #######
+
+function isempty () {
+	[[ -z $1 ]] && return 0 || return 1
+}
+
+function isused () {
+	if [[ $1 = "$disk_name" ]]; then 
+		if [[ $2 = "disk_name" ]]; then 
+			return 1
+		else
+			return 0 
+		fi
+	fi
+	if [[ $1 = "$root_part_name" ]]; then 
+		if [[ $2 = "root_part_name" ]]; then
+			return 1
+		else
+			return 0
+		fi
+	fi
+	if [[ $1 = "$swap_part_name" ]]; then 
+		if [[ $2 = "swap_part_name" ]]; then
+			return 1
+		else
+			return 0
+		fi
+	fi
+	if [[ $1 = "$boot_part_name" ]]; then 
+		if [[ $2 = "boot_part_name" ]]; then
+			return 1
+		else
+			return 0
+		fi
+	fi
+	if [[ $1 = "$home_part_name" ]]; then 
+		if [[ $2 = "home_part_name" ]]; then
+			return 1
+		else
+			return 0
+		fi
+	fi
+	if [[ $1 = "$efi_part_name" ]]; then 
+		if [[ $2 = "efi_part_name" ]]; then
+			return 1
+		else
+			return 0
+		fi
+	fi
+	return 1if [[ $1 = "$home_part_name" ]]; then 
+		if [[ $2 = "home_part_name" ]]; then
+			return 1
+		else
+			return 0
+		fi
+	fi
+
+
+}
+function part_avail () {
+	avail=$(lsblk | grep $disk_name | grep "$1 ")
+       	[[ -z $avail ]] && return 1
+	return 0
+}
+
+function grub_method_1 () {
+	#installing grub for BIOS+MBR/GPT
+	${ACM} grub-install /dev/$disk_name
+	${ACM} grub-mkconfig -o /boot/grub/grub.cfg
+}
+
+function grub_method_2 () {
+	#installing grub for UEFI+GPT
+	${ACM} grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
+	${ACM} grub-mkconfig -o /boot/grub/grub.cfg
+}
+
+function disk_name_setup () {
+	while :
+	do
+		read -p "Enter the name of the disk where to install TeLiSc:[ex: sda]: " disk_name
+		if isempty $disk_name; then
+			continue
+		fi
+
+		{ 
+			parted -s /dev/$disk_name print > /tmp/telisc_setup.tmp 2> /tmp/telisc_setup.tmp
+		} && { 
+			echo "Disk: $disk_name selected.";echo;break 
+		} || { 
+			echo "Disk $disk_name does not exists. Please try again.";echo;continue 
+		}
+	done
+}
+
+function root_part_name_setup () {
+	while :
+	do
+
+		read -p "Enter the root partition name:[ex: sda1]: " root_part_name
+		
+		if isempty $root_part_name; then
+			continue
+		fi
+		if isused $root_part_name root_part_name; then
+			echo "Error: $root_part_name is already used. Please try again."
+			continue
+		fi
+		{
+			part_avail $root_part_name
+		} && { 
+			echo "Root partition: $root_part_name selected.";echo;break 
+		} || {
+			echo "Partition $root_part_name does not exists in $disk_name. Please try again.";echo;continue 
+		}
+	done
+}
+
+function swap_part_name_setup () {
+	while :
+	do
+
+		read -p "Enter the swap partition name:[ex: sda2]: " swap_part_name
+		if isempty $swap_part_name; then
+			continue
+		fi
+		if isused $swap_part_name swap_part_name; then
+			echo "Error: $swap_part_name is already used. Please try again."
+			continue
+		fi
+
+		{
+			part_avail $swap_part_name
+		} && { 
+			echo "Swap partition: $swap_part_name selected.";echo;break 
+		} || { 
+			echo "Partition $swap_part_name does not exists in $disk_name. Please try again.";echo;continue 
+		}
+	done
+}
+
+function boot_part_name_setup () {
+	while :
+	do
+
+		read -p "Enter the boot partition name:[ex: sda3]: " boot_part_name
+		if isempty $boot_part_name; then
+			continue
+		fi
+		if isused $boot_part_name boot_part_name; then
+			echo "Error: $boot_part_name is already used. Please try again."
+			continue
+		fi
+
+		{
+			part_avail $boot_part_name
+		} && { 
+			echo "Boot partition: $boot_part_name selected.";echo;break 
+		} || {
+			echo "Partition $boot_part_name does not exists in $disk_name. Please try again.";echo;continue 
+		}
+	done
+}
+
+function home_part_name_setup () {
+	while :
+	do
+
+		read -p "Enter the home partition name:[ex: sda4]: " home_part_name
+		if isempty $home_part_name; then
+			continue
+		fi
+		if isused $home_part_name home_part_name; then
+			echo "Error: $home_part_name is already used. Please try again."
+			continue
+		fi
+
+		{
+			part_avail $home_part_name
+		} && { 
+			echo "Home partition: $home_part_name selected.";echo;
+					{
+						mount /dev/$home_part_name /mnt 2> /tmp/telisc_setup.tmp
+						touch /mnt/test_home.txt 2> /tmp/telisc_setup.tmp
+						rm /mnt/test_home.txt 2> /tmp/telisc_setup.tmp
+						umount /mnt 2> /tmp/telisc_setup.tmp
+					} || {
+						echo "Error: Something is not right about your home partition."
+					read -p 'Type "format" to format your home partition or something else to exit and continue without home partition: ' home_format
+					echo;
+					if [[ ! $home_format = "format" ]]; then
+						exit 1
+					fi
+					}
+					break 
+		} || {
+			echo "Partition $home_part_name does not exists in $disk_name. Please try again.";echo;continue 
+		}
+	done
+}
+
+function efi_part_name_setup () {
+	while :
+	do
+
+		read -p "Enter the efi partition name:[ex: sda3]: " efi_part_name
+		if isempty $efi_part_name; then
+			continue
+		fi
+		if isused $efi_part_name efi_part_name; then
+			echo "Error: $efi_part_name is already used. Please try again."
+			continue
+		fi
+		#if [[ $efi_part_name is not fat32 ]]; then
+		#	read -p "EFI partition needs to be in fat32 format. Do you want to format EFI partition?[y/n]: " efi_format
+		#fi
+		{
+			part_avail $efi_part_name
+		} && { 
+			echo "Boot partition: $efi_part_name selected.";echo;break 
+		} || {
+			echo "Partition $efi_part_name does not exists in $disk_name. Please try again.";echo;continue 
+		}
+	done
+}
+
+function boot_mode_partition_table_setup () {
+	if [ -d /sys/firmware/efi ]; then
+		boot_mode="UEFI"
+	else
+		boot_mode="BIOS"
+	fi
+	partition_table=$(parted /dev/$disk_name print | grep "Partition Table" | awk '{print $3;}')
+
+	if [[ $boot_mode = "BIOS" ]]; then
+		if [[ $partition_table = "msdos" ]]; then
+			grub_method="1"
+		elif [[ $partition_table = "gpt" ]]; then
+			if isused "${disk_name}1" bios_boot_part_name; then
+				echo "You need a bios boot partition to install grub while in BIOS/Legacy mode in GPT partition table."
+				echo "BIOS boot partition must be the begining/first partition of the disk. But ${disk_name}1 is already being used."
+			
+				while :
+				do
+					echo; echo;
+					echo "1) Go to partitioning and create a bios boot partition"
+					echo "2) Continue without bootloader. It may cause trouble while booting the OS"
+					echo "q) Close installer and reboot into UEFI mode"
+					echo; echo;
+					read -p "Select any of the options: " msdos_gpt_option
+
+					case $msdos_gpt_option in
+						1)
+							partitioning
+							break
+							;;
+						2)
+							no_bootloader="1"
+							break
+							;;
+						q)
+							reboot
+							;;
+						*)
+							continue
+							;;
+					esac
+				done
+			else
+				grub_method="1"
+			fi
+
+
+		else
+			echo "Error: Something is wrong with partition table. Please try again."
+			exit 1
+		fi
+	elif [[ $boot_mode = "UEFI" ]]; then
+		if [[ $partition_table = "msdos" ]]; then
+			echo "You need a gpt partition table to install grub in UEFI mode."
+			while :
+			do
+				echo; echo;
+				echo "1) Convert your partition table into GPT and go to partitioning"
+				echo "2) Continue without bootloader. It may cause trouble while booting the OS"
+				echo "q) Close installer and reboot into BIOS/Legacy mode"
+				echo; echo;
+				read -p "Select any of the options: " msdos_gpt_option
+
+				case $msdos_gpt_option in
+					1)
+						read -p "It will erase all data from the disk. Do you want to continue?[y/n]: " erase_confirm
+						if [[ $erase_confirm = "y" ]]; then
+							parted -s /dev/$disk_name mklabel gpt
+							partitioning
+							break
+						fi
+						continue
+						;;
+					2)
+						no_bootloader="1"
+						break
+						;;
+					q)
+						reboot
+						;;
+					*)
+						continue
+						;;
+				esac
+			done
+		elif [[ $partition_table = "gpt" ]]; then
+			efi_part_name_setup
+			grub_method="2"
+		else
+			echo "Error: Something is wrong with the partition table. Please try again."
+			exit 1
+		fi
+	else
+		echo "Boot mode cannot be specified. Please try again after rebooting the system."
+		exit 1
+
+	fi 
+
+}
+
+function partitioning () {
+	clear
+	echo "#####################################"
+	echo "#           PARTITIONING            #"
+	echo "#####################################"
+	echo ; echo ;
+
+	lsblk
+	echo;
+	disk_name_setup
+
+
+	read -p "Do you want to edit partitions? (y/n): " epart
+	if [ $epart = "y" ]; then
+		cfdisk /dev/$disk_name
+		lsblk > /tmp/telisc_setup.tmp 2> /tmp/telisc_setup.tmp
+	fi
+
+
+	lsblk | grep $disk_name;echo;
+
+	root_part_name_setup
+
+	read -p "Do you want a swap partition? (y/n): " spart
+	if [ $spart = "y" ]; then
+		swap_part_name_setup
+	else
+		echo "Swap has not been set. Proceeding anyway.";echo;
+	fi
+
+	read -p "Do you want a separate boot partition? (y/n): " bpart
+	if [ $bpart = "y" ]; then
+		boot_part_name_setup
+	fi
+
+	read -p "Do you want a separate home partition? (y/n): " hpart
+	if [ $hpart = "y" ]; then
+		home_part_name_setup
+	fi
+
+	boot_mode_partition_table_setup
+	clear
+	echo "########################################"
+	echo "#        PARTITIONING SUMMARY          #"
+	echo "########################################"
+	echo ; echo ;
+	echo "DISK: $disk_name"
+	echo "Boot Mode: $boot_mode"
+	if [[ $partition_table = "msdos" ]]; then
+		echo "Partition Table: MSDOS(MBR)"
+	else
+		echo "Partition Table: GPT"
+	fi
+	echo "Root Partition: $root_part_name"
+	if [ $spart = "y" ]; then
+		echo "Swap Partition: $swap_part_name"
+	fi
+
+	if [ $bpart = "y" ]; then
+		echo "Boot Partition: $boot_part_name"
+	fi
+
+	if [ $hpart = "y" ]; then
+		echo "Home Partition: $home_part_name"
+		if [ ! -z $home_format ]; then
+		if [[ $home_format = "format" ]]; then
+			echo "Format Home: YES"
+		else
+			echo "Format Home: NO"
+		fi
+	fi
+
+	fi
+	
+	echo;echo;
+	while :
+	do
+		read -p 'Type "yes" to continue and "no" to edit partition setup again : ' again_partition
+		if isempty $again_partition; then
+			continue
+		fi
+
+		if [ $again_partition = "yes" ]; then
+			break
+		fi
+		if [ $again_partition = "no" ]; then
+			partitioning
+		else
+			continue
+		fi
+	done
+
+}
+function set_user_name () {
+	while :
+	do
+
+		echo "USERNAME: "
+		read -p "Enter username [ex: john]: " user_name
+
+		if [ ! $user_name ]; then
+			echo "No user name is supplied. Please try again."
+			continue
+		fi
+		if [[ $user_name == *['!'~@#\$%^\&*()_+]* ]]; then
+			echo "User name can't contain special character(!@#$%^&*()_+). Please try again!!"
+			continue
+		fi
+		#Checking for user name availibility
+		if [ $(getent passwd ${user_name}) ]; then
+			echo "User name ${user_name} already exists. Please try again!!"
+			continue
+		fi
+		break
+	done
+}
+
+function set_hostname () {
+	while :
+	do
+
+		echo "HOSTNAME: "
+		echo "A host name is a unique name created to identify a machine on a network. Length is restricted to 63 characters."
+		read -p "Hostname [ex: telisc]: " host_name
+
+		if [ ! $host_name ]; then
+			echo "No user name is supplied. Please try again."
+			continue
+		fi
+		if [[ $host_name == *['!'~@#\$%^\&*()_+]* ]]; then
+			echo "User name can't contain special character(!@#$%^&*()_+). Please try again!!"
+			continue
+		fi
+		break
+	done
+}
+
+function set_root_password () {
+	while :
+	do
+		read -sp "Enter password for root: " password3
+		echo ;	
+		read -sp "Enter password again for root: " password4
+		echo ;
+		if [[ ! $password3 = "$password4" ]]; then
+			echo "Passwords do not match. Pleease try again."
+			continue
+		fi
+		break	
+	done
+}
+
+function set_password () {
+	while :
+	do
+		read -sp "Enter password for $user_name: " password1
+		echo ;	
+		read -sp "Enter password again for $user_name: " password2
+		echo ;
+		if [[ ! $password1 = "$password2" ]]; then
+			echo "Passwords do not match. Pleease try again."
+			continue
+		fi
+		read -p "Do you want to use this password for root password?[y/n]: " same_pass
+		if [[ $same_pass = "n" ]]; then
+			set_root_password
+		else
+			password3=$(echo $password1)
+		fi
+		break	
+	done
+}
+function user_setup () {
+	set_user_name
+	set_password
+	set_hostname
+}
+
+function format_mount () {
+	mkfs.ext4 /dev/$root_part_name
+
+	mount /dev/$root_part_name /mnt
+
+	if [ $spart = "y" ]; then
+		mkswap /dev/$swap_part_name
+		swapon /dev/$swap_part_name
+	fi
+
+	if [ $hpart = "y" ]; then
+		if [ $home_format = "y" ]; then
+			mkfs.ext4 /dev/$home_part_name
+		fi
+		mkdir /mnt/home
+		mount /dev/$home_part_name /mnt/home
+	fi
+
+	if [ $bpart = "y" ]; then
+		mkdir /mnt/boot
+		mkfs.ext4 /dev/$boot_part_name
+		mount /dev/$boot_part_name /mnt/boot
+	fi
+	if [[ $efi_format = "y" ]]; then
+		mkfs.fat -F 32 /dev/$efi_part_name
+		mkdir -p /mnt/boot/EFI
+		mount /dev/$efi_part_name /mnt/boot/EFI
+
+	fi
+
+}
+
+function installing_system () {
+	# copy live iso environment to /mnt (new install device)
+	echo "Copy live root image to /mnt "
+	cp -ax / /mnt
+	# copy kernel to new install
+	echo "Add kernel to new install..."
+	cp -vaT /run/archiso/bootmnt/arch/boot/$(uname -m)/vmlinuz /mnt/boot/vmlinuz-linux
+	# generate fstab for new device
+	echo "Create /etc/fstab..."
+	genfstab -U -p /mnt > /mnt/etc/fstab
+	# remake boot image
+	echo "Rebuild boot image..."
+	${ACM} /usr/bin/mkinitcpio -p linux
+
+	# grub install
+	[[ $grub_method = "1" ]] && grub_method_1
+	[[ $grub_method = "2" ]] && grub_method_2
+
+	# setting root password
+	# setting user
+	if [ $su_user = "y" ]; then
+		${ACM} useradd -m -g users -G sudo -s /usr/bin/zsh ${user_name}
+	else
+		${ACM} useradd -m -g users -s /usr/bin/zsh ${user_name}
+	fi
+	# setting password for user
+	echo -e "$password1\n$password1" | ($ACM passwd ${user_name})
+	# setting root password
+	echo -e "$password3\n$password3" | ($ACM passwd)
+	# setting hostname
+	echo ${host_name} > /mnt/etc/hostname
+}
+
+function clean_up () {
+	# clean up new install, basically removing archiso files that are needed live
+	echo "Clean new install..."
+	rm /mnt/etc/mkinitcpio-archiso.conf
+	rm -r /mnt/etc/initcpio
+	rm /mnt/root/tinstall
+	rm /mnt/root/install.txt
+	rm /mnt/root/.zshrc
+	rm -Rf /mnt/root/boot
+	rm -Rf /mnt/etc/systemd/system/getty@tty1.service.d/autologin.conf
+	rm -Rf /mnt/opt/welcome
+	rm -Rf /mnt/opt/install.txt
+	rm -Rf /mnt/boot/syslinux
+	rm -Rf /mnt/run/archiso
+}
+
+
+
+
+partitioning
+user_setup
+#format_mount
+#installing_system
+#clean_up
+
+
+#umount -R /mnt
+#
+#echo "::Installation complete::"
+#
+##Reboot?
+#read -p "Do you want to REBOOT now? (y/n)" rboot
+#if [ $rboot = "y" ]; then
+#	reboot
+#else
+#	exit
+#fi

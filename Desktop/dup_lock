@@ -1,0 +1,9 @@
+#!/bin/bash
+
+dup_autolock=$(ps -A | grep "autolock.sh" | wc -l)
+
+[[ $dup_autolock -eq 0 ]] && autolock.sh
+
+dup_lockaftersleep=$(ps -A | grep "lockaftersleep" | wc -l)
+
+[[ $dup_lockaftersleep -eq 0 ]] && lockaftersleep
