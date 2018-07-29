@@ -1,0 +1,485 @@
+#!/bin/bash
+
+### Checking the system ready or not ###
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+
+ACM="arch-chroot /srv/nfsroot"
+
+
+if [ ! $($ACM echo "hello") ]; then
+	echo "Please make sure no one else is logged into chroot environment(/srv/nfsroot)."
+	exit 1
+fi
+
+
+#### FUNCTIONS ####
+
+function grpexists {
+	if [ ! $(getent group $1) ]; then
+		echo "group $1 does not exist in master node."
+		return 1
+	else
+		return 0
+	fi
+}
+function grpexists_slave {
+	if [ ! $($ACM getent group $1) ]; then
+		echo "group $1 does not exist in slave nodes."
+		exit 1
+	fi
+}
+function create_home {
+	dd if=/dev/zero of=/hom/${user_name}.img bs=1M count=1024
+	mkfs.ext4 /hom/${user_name}.img
+	#chmod 700 /hom/${user_name}.img
+	mount /hom/${user_name}.img /home/${user_name}
+	cp -r /etc/skel/.ssh /home/${user_name}
+	cp -r /etc/skel/.tmux.conf /home/${user_name}
+	cp -r /etc/skel/.zshrc /home/${user_name}
+	chown -R ${user_name}:users /home/${user_name}
+	chmod -R 700 /home/${user_name}
+	$ACM chown -R ${user_name}:users /home/${user_name}
+	$ACM chmod -R 700 /home/${user_name}
+
+}
+
+function isdigit () {
+	[ $# -eq 1 ] || return 1;
+	[[ $1 = *[^0-9]* ]] && return 1
+	return 0
+}
+
+function set_user_name () {
+	while :
+	do
+		read -p "Enter username [ex: john]: " user_name
+
+		if [ ! $user_name ]; then
+			echo "No user name is supplied. Please try again."
+			continue
+		fi
+
+		#Checking for special characters in user name
+		if [[ $user_name == *['!'~@#\$%^\&*()_+]* ]]; then
+			echo "User name can't contain special character(!@#$%^&*()_+). Please try again!!"
+			continue
+		fi
+		#Checking for user name availibility in master node
+		if [ $(getent passwd ${user_name}) ]; then
+			echo "User name ${user_name} already exists in master node. Please try again!!"
+			continue
+		fi
+
+		#Checking for user name availibility in slave node
+		if [ $($ACM getent passwd ${user_name}) ]; then
+			echo "User name ${user_name} already exists in slave node. Please try again!!"
+			continue
+		fi
+		break
+	done
+}
+
+function user_id_availibility () {
+	i=3001
+
+	while :
+	do
+		if grep -q ":$i:" "/etc/passwd"; then
+			i=`expr $i + 1` #Increament for loop
+			#echo "Found!!"  #Uncomment for debug
+		else
+			#echo "Not Found!!" #Uncomment for debug
+			break
+		fi
+	done
+
+
+	user_id_avail="$i"
+}
+
+function set_user_id () {
+	while :
+	do
+		user_id_availibility
+
+		read -p "Enter user ID [Default: $user_id_avail]: " user_id
+
+		if [ ! $user_id ]; then
+			user_id="$user_id_avail"
+			break
+		fi
+
+		#Checking for non-digit character in user id
+		if isdigit $user_id; then
+			echo ; 
+		else 
+			echo "User ID cannot contain non digit character. Please try again"
+			continue
+		fi
+
+
+		#Checking for user ID availibility in master node
+		if [ $(getent passwd ${user_id}) ]; then
+			echo "User ID ${user_id} already exists in master node. Please try again!!"
+			continue
+		fi
+
+		#Checking for user ID availibility in slave node
+		if [ $($ACM getent passwd ${user_id}) ]; then
+			echo "User ID ${user_id} already exists in slave node. Please try again!!"
+			continue
+		fi
+		break
+	done
+}
+
+function set_groups () {
+	while :
+	do
+		read -p "Enter groupname [ex: general]: " group_name
+		group_err=0
+		
+		if [ ! $group_name ]; then
+			group_name="general"
+			break
+		fi
+		#Checking for special characters
+		if [[ $group_name == *['!'~@#\$%^\&*()_+]* ]]; then
+			echo "Group name can't contain special character(!@#$%^&*()_+). Please try again!!"
+			continue
+		fi
+		#Checking for group availibility
+		for i in ${group_name//,/ }
+		do
+			if ! grpexists $i; then
+				echo "Group does not exists in master node. Please try again."
+				group_err=1
+				break
+			fi
+			if ! grpexists_slave $i; then
+				echo "Group does not exists in slave node. Please try again."
+				group_err=1
+				break
+			fi
+		done
+		if [ $group_err == '1' ]; then
+			continue
+		fi
+		break
+	done
+}
+
+function create_user () {
+	if [ $su_user = "y" ]; then
+		useradd -m -u ${user_id} -g users -G sudo,${group_name} -s /usr/bin/zsh ${user_name}
+		$ACM useradd -m -u ${user_id} -g users -G sudo,${group_name} -s /usr/bin/zsh ${user_name}
+		#create_home
+	else
+		useradd -m -u ${user_id} -g users -G ${group_name} -s /usr/bin/zsh ${user_name}
+		$ACM useradd -m -u ${user_id} -g users -G ${group_name} -s /usr/bin/zsh ${user_name}
+		#create_home
+	fi
+
+}
+
+function set_password () {
+	while :
+	do
+		read -sp "Enter password for $user_name: " password1
+		echo ;	
+		read -sp "Enter password again for $user_name: " password2
+		echo ;
+		if [ $password1 == "$password" ]; then
+			echo "Passwords do not match. Pleease try again."
+			continue
+		fi
+		echo -e "$password1\n$password1" | (passwd ${user_name}) 
+		echo -e "$password1\n$password1" | ($ACM passwd ${user_name})
+		break	
+	done
+}
+
+function set_expiry_date () {
+	while :
+	do
+		read -p "How long the account will be valid for(in days)?[ex: 30] " expiry_time
+
+		if [ ! $expiry_time ]; then
+			expiry_time="30"
+		elif isdigit $expiry_time; then
+			echo ;
+		else 
+			echo "Validity time must be a number in days. Please try again";
+			continue
+		fi
+
+		expiry_date=`date -d "${expiry_time} days" +"%Y-%m-%d"`
+		
+		break
+	done
+}
+
+function set_ssh () {
+	ssh-keygen -t rsa -f /home/${user_name}/.ssh/id_rsa -q -N ""
+	cp /home/${user_name}/.ssh/id_rsa.pub /home/${user_name}/.ssh/authorized_keys
+	chown -R ${user_name}:users /home/${user_name}/.ssh
+}
+
+function set_shell_permission () {
+	chown root:root /home/${user_name}/.zshrc
+	chmod 755 /home/${user_name}/.zshrc
+}
+
+function add_user () {
+	while :
+	do
+		clear
+		echo "#####################################"
+		echo "#              ADD USER             #"
+		echo "#####################################"
+		echo ;
+		echo ;
+		echo ;
+
+		set_user_name
+		set_user_id
+		set_groups
+
+		read -p "Want to add sudo privillage? (y/n): " su_user
+		read -p "Do you want to set a expiry date for this user?[y/n]: " expiry_yes_no
+
+		if [ $expiry_yes_no == "y" ]; then
+			set_expiry_date
+		else
+			echo "Expiry Date has not been set. Proceeding anyway."
+		fi
+
+		#echo "USER NAME: $user_name"
+		#echo "USER ID: $user_id"
+		#echo "GROUPS: $group_name"
+
+		#exit 1
+		### Setting Things Up ###
+		create_user
+		set_password
+
+		if [ $expiry_yes_no == "y" ]; then
+			chage -E ${expiry_date} ${user_name}
+		fi
+
+		set_ssh
+		set_shell_permission
+		echo ;
+		echo "DONE!!"
+		echo ;
+		echo ;
+		echo "1) Add another user"
+		echo "2) Main Menu"
+		echo "q) Quit"
+		echo ;
+		echo ;
+		read -p "Select an option: " add_user_option
+
+		case $add_user_option in
+			1)
+				continue
+				;;
+			2)
+				break
+				;;
+			q)
+				echo ; echo ;
+				echo "Good Day :)"
+				echo ;
+				exit 1
+				;;
+		esac
+
+	done
+}
+
+function delete_user () {
+	while :
+	do
+		clear
+		echo "#####################################"
+		echo "#           DELETE USER             #"
+		echo "#####################################"
+		echo ;
+		echo ;
+		read -p "Enter the name of the user: " user_name_delete
+		echo ;
+		echo "Deleting user $user_name_delete from master node..."
+		userdel -r $user_name_delete
+		echo "Deleting user $user_name_delete from slave nodes..."
+		$ACM userdel -r $user_name_delete
+
+		echo "DONE!!!"
+		echo ;
+		echo ;
+		echo "1) Delete another user"
+		echo "2) Main Menu"
+		echo "q) Quit"
+		echo ; 
+		echo ;
+		echo ;
+		read -p "Select an option: " delete_user_option
+
+		case $delete_user_option in
+			1)
+				continue
+				;;
+			2)
+				break
+				;;
+			q)
+				echo ; echo ;
+				echo "Good Day :)"
+				echo ;
+				exit 1
+				;;
+		esac
+
+
+	done
+}
+
+function add_group () {
+	while :
+	do
+		clear
+		echo "#####################################"
+		echo "#             ADD GROUP             #"
+		echo "#####################################"
+		echo ;
+		echo ;
+		set_groups
+
+		groupadd ${group_name}
+		$ACM groupadd ${group_name}
+
+		echo "DONE!!"
+
+		echo ;
+		echo ;
+		echo "1) Add another group"
+		echo "2) Main Menu"
+		echo "q) Quit"
+		echo ; 
+		echo ;
+		echo ;
+		read -p "Select an option: " add_group_option
+
+		case $add_group_option in
+			1)
+				continue
+				;;
+			2)
+				break
+				;;
+			q)
+				echo ; echo ;
+				echo "Good Day :)"
+				echo ;
+				exit 1
+				;;
+		esac
+
+
+	done
+}
+
+function delete_group () {
+	while :
+	do
+		clear
+		echo "#####################################"
+		echo "#           DELETE GROUP            #"
+		echo "#####################################"
+		echo ;
+		echo ;
+		read -p "Enter the name of the group: " group_name_delete
+		echo ;
+		echo "Deleting group $group_name_delete from master node..."
+		groupdel $group_name_delete
+		echo "Deleting group $group_name_delete from slave nodes..."
+		$ACM groupdel $group_name_delete
+
+		echo "DONE!!!"
+
+		echo ;
+		echo ;
+		echo "1) Delete another group"
+		echo "2) Main Menu"
+		echo "q) Quit"
+		echo ; 
+		echo ;
+		echo ;
+		read -p "Select an option: " delete_group_option
+
+		case $delete_group_option in
+			1)
+				continue
+				;;
+			2)
+				break
+				;;
+			q)
+				echo ; echo ;
+				echo "Good Day :)"
+				echo ;
+				exit 1
+				;;
+		esac
+
+
+	done
+}
+
+### Menu ###
+while :
+do
+	clear
+	echo "#####################################"
+	echo "#            MAIN MENU              #"
+	echo "#####################################"
+	echo ;
+	echo ;
+	echo ;
+	echo "1) Add User"
+	echo "2) Delete User"
+	echo "3) Add Group"
+	echo "4) Delete Group"
+	echo "q) Quit"
+	echo ;
+	echo ;
+	echo ;
+	read -p "Select any of the options: " main_menu_option
+
+	case $main_menu_option in
+		1)
+			add_user
+			;;
+		2)
+			delete_user
+			;;
+		3)
+			add_group
+			;;
+		4)
+			delete_group
+			;;
+		q)
+			echo ; echo ;
+			echo "Good Day :)"
+			echo ;
+			exit 1
+			;;
+		*)
+			echo "Something went wrong. Please try again."
+			;;
+	esac
+done

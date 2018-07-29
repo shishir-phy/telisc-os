@@ -1,0 +1,127 @@
+#!/bin/sh
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+
+
+echo "Searching for node......."
+echo ;
+#add a variable in nmap
+ip_search=192.168.0.0
+
+########### Generate ip_match ###############################
+
+A="$(cut -d'.' -f1 <<<"$ip_search")"
+B="$(cut -d'.' -f2 <<<"$ip_search")"
+
+ip_match="$A.$B"
+################################################################
+
+#################### Grab IP & MAC Adress ######################
+
+ip=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Address:/{print " "$3;}' | sort )
+
+echo "$ip"
+exit 1
+#mac=$(nmap -sP $ip_search/24 | awk '/Nmap scan report for/{printf $5;}/MAC Address:/{print " "$3;}' | sort | grep $ip_match | awk '{print $2;}')
+
+###############################################################
+function check_ssh {
+	if ssh $ip echo; then
+		echo 	
+	else
+		echo "ssh is not ready yet! Please try again after some times."
+		exit 1
+	fi
+
+}
+
+#function slurm_setup {
+#	ssh $1 hostnamectl set-hostname $1 #setting hostname in new node
+#	SMD=$(ssh $ip slurmd -C) #grubing slurm.conf configuration for new node
+#	A=$(echo "$SMD" | awk '{print $1;}')
+#	B=$(echo "$SMD" | awk '{print $2;}')
+#	C=$(echo "$SMD" | awk '{print $3;}')
+#	D=$(echo "$SMD" | awk '{print $4;}')
+#	E=$(echo "$SMD" | awk '{print $5;}')
+#	F=$(echo "$SMD" | awk '{print $6;}')
+#	G=$(echo "$SMD" | awk '{print $7;}')
+#	#echo "A=$A"
+#	TXT=$(echo "NodeName=$1 NodeAddr=$ip $B $C $D $E $F $G")
+#	#echo $TXT
+#	sed -i "/PartitionName=$partition/i$TXT" /etc/slurm/slurm.conf
+#	sed -i "/PartitionName=$partition/i$TXT" /srv/nfsroot/etc/slurm/slurm.conf
+#	systemctl restart slurmctld.service
+#	ssh $1 systemctl restart slurmd.service
+#	scontrol reconfigure
+#
+#}
+#
+
+
+######### Check for Available Node #############################
+
+i=1
+
+while :
+do
+	if grep -q "node$i " "/etc/hosts"; then
+		i=`expr $i + 1` #Increament for loop
+		#echo "Found!!"  #Uncomment for debug
+	else
+		#echo "Not Found!!" #Uncomment for debug
+		break
+	fi
+done
+
+
+node_avail="node$i"
+
+################################################################
+
+
+
+if [ ! "$mac" ] && [ ! "$ip" ]; then
+	echo "No device or node found!"
+elif [ ! "$mac" ]; then
+    if grep -q "master " "/etc/hosts"; then
+		echo "Error Occured. Please try again!!"
+		exit 1
+    else
+        echo "Please set your master first using add_master command."
+        exit 1
+	fi
+
+else
+	check_ssh
+	#suggest default node name
+	echo "Found: IP = $ip ; MAC = $mac"
+	read -p "Enter the node name[Default: $node_avail]: " node
+	if [ ! "$node" ]; then
+		node="$node_avail"
+    elif [[ $node == *['!'@#\$%^\&*()_+]* ]]; then
+        echo "Node name can't contain special character(!@#$%^&*()_+). Please try again!!"
+        exit 1
+	elif grep -q "$node " "/etc/hosts"; then
+		echo "Node name not available. Please try again!!"
+		exit 1
+	fi
+#	### Partition Set #####
+#	read -p "Enter the partition name[Example: y_comp]: " partition
+#	if grep -q "PartitionName=$partition " "/etc/slurm/slurm.conf"; then
+#		echo ;
+#	else
+#		echo "No Partition named $partition. Please try again."
+#		exit 1
+#	fi
+	echo "$ip $node " >> /etc/hosts
+	echo "$ip $node " >> /srv/nfsroot/etc/hosts
+	echo "dhcp-host=$mac,$ip " >> /etc/dnsmasq.conf
+#	slurm_setup $node
+	echo "$node " >> /etc/node.conf  ## Adding node in the machine file
+fi
+
+echo "DONE!!!"
+
+
