@@ -1,5 +1,9 @@
 #!/bin/bash
 
+dup_lockaftersleep=$(ps -A | grep "lockaftersleep" | wc -l)
+
+[[ $dup_lockaftersleep -gt 2 ]] && exit
+
 time_var=$(date | awk '{print $4}')
 #echo $time_var | sed 's/:/\n/g'
 strp1=$(echo $time_var | cut -d':' -f1)
@@ -19,13 +23,18 @@ do
         ustr3=`expr $ustr3 + 60`
     fi
     diff=`expr $ustr3 - $strp3`
+    [ "$diff" -lt 0 ] && ((diff *= -1))
 
-    #echo $strp3 $ustr3 $diff
+    echo $strp3 $ustr3 $diff
     if [[ $diff -lt 2 ]]; then
         echo "MATCH"
     else
-        /usr/bin/lock
-        echo "NOT MATCH"
+	    lock_grep=$(ps -A | grep i3lock | awk '{print $1}')
+	    if [[ -z $lock_grep ]]; then
+		    echo "i3lock"
+		    /usr/bin/lock
+	    fi
+	    echo "NOT MATCH"
     fi
 
     sleep 3

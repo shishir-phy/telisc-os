@@ -1,5 +1,9 @@
 #!/bin/bash
 
+dup_autolock=$(ps -A | grep "autolock.sh" | wc -l)
+
+[[ $dup_autolock -gt 2 ]] && exit 1
+
 while :
 do
     stt=$(cat /proc/asound/card*/pcm*/sub*/status | grep RUNNING | awk '{print $2;}')
