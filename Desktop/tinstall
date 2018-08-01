@@ -72,7 +72,7 @@ function isused () {
 }
 
 function part_avail () {
-	avail=$(lsblk | grep $disk_name | grep "─$1 ")
+	avail=$(lsblk | grep $disk_name | grep "$1 ")
        	[[ -z $avail ]] && return 1
 	return 0
 }
@@ -400,6 +400,9 @@ function partitioning () {
 	if [ $bpart = "y" ]; then
 		echo "Boot Partition: $boot_part_name"
 	fi
+	if [ $grub_method = "2" ]; then
+		echo "EFI Partition: $efi_part_name"
+	fi
 
 	if [ $hpart = "y" ]; then
 		echo "Home Partition: $home_part_name"
@@ -452,6 +455,7 @@ function set_user_name () {
 			echo "User name ${user_name} already exists. Please try again!!"
 			continue
 		fi
+		read -p "Do you want sudo previledge for $user_name?[y/n]: " su_user
 		break
 	done
 }
@@ -540,11 +544,12 @@ function format_mount () {
 		mkfs.ext4 /dev/$boot_part_name
 		mount /dev/$boot_part_name /mnt/boot
 	fi
-	if [[ $efi_format = "y" ]]; then
-		mkfs.fat -F 32 /dev/$efi_part_name
+	if [[ $grub_method = "2" ]]; then
+		if [[ $efi_format = "y" ]]; then
+			mkfs.fat -F 32 /dev/$efi_part_name
+		fi
 		mkdir -p /mnt/boot/EFI
 		mount /dev/$efi_part_name /mnt/boot/EFI
-
 	fi
 
 }
@@ -603,19 +608,19 @@ function clean_up () {
 
 partitioning
 user_setup
-#format_mount
-#installing_system
-#clean_up
+format_mount
+installing_system
+clean_up
 
 
-#umount -R /mnt
-#
-#echo "::Installation complete::"
-#
+umount -R /mnt
+
+echo "::Installation complete::"
+
 ##Reboot?
-#read -p "Do you want to REBOOT now? (y/n)" rboot
-#if [ $rboot = "y" ]; then
-#	reboot
-#else
-#	exit
-#fi
+read -p "Do you want to REBOOT now? (y/n)" rboot
+if [ $rboot = "y" ]; then
+	reboot
+else
+	exit
+fi
