@@ -1,10 +1,12 @@
 #!/bin/bash
 
 function do_lock () {
-    lock_grep=$(ps -A | grep i3lock | awk '{print $1}')
+    lock_grep=$(ps -A | grep "i3lock" | awk '{print $1}')
     if [[ -z $lock_grep ]]; then
-        echo "i3lock"
+        echo "locking the screen"
         /usr/bin/lock
+    else
+        echo "Lock is already running"
     fi
 }
 
@@ -25,6 +27,8 @@ do
     pmin=$(echo $min)
     psec=$(echo $sec)
 
+    phour=`expr $phour + 0`
+    pmin=`expr $pmin + 0`
     psec=`expr $psec + 0`
 
     time_var=$(date | awk '{print $4}')
@@ -41,18 +45,40 @@ do
 
     usec=`expr $sec - 3`
     if [[ $usec -lt 0 ]]; then
-        umin=`expr $min + 1`
+        umin=`expr $min - 1`
         usec=`expr $usec + 60`
+    else
+        umin=`expr $min + 0`
     fi
-    diff=`expr $usec - $psec`
+    if [[ $umin -lt 0 ]]; then
+        umin=`expr $umin + 60`
+        uhour=`expr $hour - 1`
+    else
+        uhour=`expr $hour + 0`
+    fi
+    if [[ $uhour -lt 0 ]]; then
+        uhour=`expr $uhour + 24`
+    fi
+
+    [[ $uhour -lt 10 ]] && uhour=$(echo "0$uhour")
+    [[ $umin -lt 10 ]] && umin=$(echo "0$umin")
+    [[ $usec -lt 10 ]] && usec=$(echo "0$usec")
+    [[ $phour -lt 10 ]] && phour=$(echo "0$phour")
+    [[ $pmin -lt 10 ]] && pmin=$(echo "0$pmin")
+    [[ $psec -lt 10 ]] && psec=$(echo "0$psec")
+    
+    utime=$(echo $uhour$umin$usec)
+    ptime=$(echo $phour$pmin$psec)
+
+    diff=`expr $utime - $ptime`
     [ "$diff" -lt 0 ] && ((diff *= -1))
 
-    echo $psec $usec $diff
-    if [[ $diff -lt 2 ]]; then
+    echo $phour:$pmin:$psec $uhour:$umin:$usec $diff
+    if [[ $diff -lt 5 ]]; then
         echo "MATCH"
     else
+        echo -n "NOT MATCH: "
         do_lock
-        echo "NOT MATCH"
     fi
 
     done
