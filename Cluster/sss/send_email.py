@@ -4,10 +4,8 @@ from email.mime.multipart import MIMEMultipart as text
 
 
 ########### Crredentials #####################
-gmail_user = 'teliscos@gmail.com'  
-gmail_password = 'dzfqtwrgbfusbyut'
-#gmail_user = 'shishir0202@gmail.com'  
-#gmail_password = 'sxsaqdvkhgurffle'
+gmail_user = 'teliscos@gmail.com'
+gmail_password = '***************' # App Password
 ##############################################
 sent_from = gmail_user
 _help = "commmand <email to> <subject> <file/text> <file path/content>"
@@ -33,7 +31,7 @@ else:
     body=opt
 
 
-email_text = """ From: From Person <{}>  
+email_text = """ From: From Person <{}>
 To: To Person <{}>
 MIME-Version: 1.0
 Content-type: text/html
@@ -42,7 +40,7 @@ Subject: {}
 {}
 """.format(sent_from, ", ".join(to), subject, body)
 
-try:  
+try:
     server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
     server.ehlo()
     server.login(gmail_user, gmail_password)
@@ -50,7 +48,7 @@ try:
     server.close()
 
     print('Email sent!')
-except:  
+except:
     print('Something went wrong...')
 
 
