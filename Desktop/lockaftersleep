@@ -67,8 +67,13 @@ do
     [[ $pmin -lt 10 ]] && pmin=$(echo "0$pmin")
     [[ $psec -lt 10 ]] && psec=$(echo "0$psec")
     
-    utime=$(echo $uhour$umin$usec)
-    ptime=$(echo $phour$pmin$psec)
+    uhour_sec=`expr $uhour \\* 3600`
+    umin_sec=`expr $umin \\* 60`
+    phour_sec=`expr $phour \\* 3600`
+    pmin_sec=`expr $pmin \\* 60`
+
+    utime=`expr $uhour_sec + $umin_sec + $usec`
+    ptime=`expr $phour_sec + $pmin_sec + $psec`
 
     diff=`expr $utime - $ptime`
     [ "$diff" -lt 0 ] && ((diff *= -1))
