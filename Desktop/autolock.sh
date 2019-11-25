@@ -1,8 +1,8 @@
 #!/bin/bash
 
-dup_autolock=$(ps -A | grep "autolock.sh" | wc -l)
+dup_autolock=$(ps -u $USER | grep "autolock.sh" | wc -l)
 
-[[ $dup_autolock -gt 2 ]] && exit 1
+[[ $dup_autolock -gt 2 ]] && echo "Process already running." && exit 1
 
 while :
 do

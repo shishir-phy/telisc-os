@@ -85,6 +85,7 @@ function grub_method_1 () {
 
 function grub_method_2 () {
 	#installing grub for UEFI+GPT
+	${ACM} cp /boot/EFI/EFI/Boot/*.efi /boot/EFI/EFI/
 	${ACM} grub-install --target=x86_64-efi --efi-directory=/boot/EFI --bootloader-id=GRUB
 	${ACM} grub-mkconfig -o /boot/grub/grub.cfg
 }
@@ -516,7 +517,12 @@ function set_password () {
 	done
 }
 function user_setup () {
-	set_user_name
+	clear
+	echo "########################################"
+	echo "#              User Setup              #"
+	echo "########################################"
+	echo ; echo ;
+    set_user_name
 	set_password
 	set_hostname
 }
@@ -532,7 +538,7 @@ function format_mount () {
 	fi
 
 	if [ $hpart = "y" ]; then
-		if [ $home_format = "y" ]; then
+		if [ $home_format = "format" ]; then
 			mkfs.ext4 /dev/$home_part_name
 		fi
 		mkdir /mnt/home
@@ -551,6 +557,16 @@ function format_mount () {
 		mkdir -p /mnt/boot/EFI
 		mount /dev/$efi_part_name /mnt/boot/EFI
 	fi
+
+}
+
+function config_files () {
+    mv /mnt/home/$user_name/.zshrc /mnt/home/$user_name/.zshrc.bak
+    mv /mnt/home/$user_name/.bashrc /mnt/home/$user_name/.bashrc.bak
+    mv /mnt/home/$user_name/.xinitrc /mnt/home/$user_name/.xinitrc.bak
+    mv /mnt/home/$user_name/.tmux.conf /mnt/home/$user_name/.tmux.conf.bak
+    mv /mnt/home/$user_name/.gtkrc-2.0 /mnt/home/$user_name/.gtkrc-2.0.bak
+    mv /mnt/home/$user_name/.config/i3/config /mnt/home/$user_name/.config/i3/config.bak
 
 }
 
@@ -585,6 +601,7 @@ function installing_system () {
 	echo -e "$password3\n$password3" | ($ACM passwd)
 	# setting hostname
 	echo ${host_name} > /mnt/etc/hostname
+    ${ACM} /usr/bin/netinterfacesetup 
 }
 
 function clean_up () {
@@ -597,8 +614,8 @@ function clean_up () {
 	rm /mnt/root/.zshrc
 	rm -Rf /mnt/root/boot
 	rm -Rf /mnt/etc/systemd/system/getty@tty1.service.d/autologin.conf
-	rm -Rf /mnt/opt/welcome
-	rm -Rf /mnt/opt/install.txt
+	rm -Rf /mnt/telisc/welcome
+	rm -Rf /mnt/telisc/install.txt
 	rm -Rf /mnt/boot/syslinux
 	rm -Rf /mnt/run/archiso
 }
@@ -609,6 +626,7 @@ function clean_up () {
 partitioning
 user_setup
 format_mount
+config_files
 installing_system
 clean_up
 

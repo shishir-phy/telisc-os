@@ -172,6 +172,7 @@ function set_groups () {
 	done
 }
 
+
 function create_user () {
 	if [ $su_user = "y" ]; then
 		useradd -m -u ${user_id} -g users -G sudo,${group_name} -s /usr/bin/zsh ${user_name}
@@ -311,12 +312,21 @@ function delete_user () {
 		echo ;
 		echo ;
 		read -p "Enter the name of the user: " user_name_delete
+        read -p "Keep home?(y/n)  " home_delete
 		echo ;
-		echo "Deleting user $user_name_delete from master node..."
-		userdel -r $user_name_delete
-		echo "Deleting user $user_name_delete from slave nodes..."
-		$ACM userdel -r $user_name_delete
+        if [[ $home_delete == "y" ]]; then
+            echo "Deleting user $user_name_delete from master node..."
+            userdel -r $user_name_delete
+            echo "Deleting user $user_name_delete from slave nodes..."
+            $ACM userdel -r $user_name_delete
+        else
+            echo "Deleting user $user_name_delete from master node..."
+            userdel $user_name_delete
+            echo "Deleting user $user_name_delete from slave nodes..."
+            $ACM userdel $user_name_delete
+        fi
 
+		echo ;
 		echo "DONE!!!"
 		echo ;
 		echo ;
@@ -346,6 +356,49 @@ function delete_user () {
 
 	done
 }
+function grpexists_addgroup {
+	if [  $(getent group $1) ]; then
+		echo "group $1 already exist in master node."
+		return 1
+	else
+		return 0
+	fi
+}
+function grpexists_slave_addgroup {
+	if [  $($ACM getent group $1) ]; then
+		echo "group $1 already exist in slave nodes."
+		return 1
+	else
+		return 0
+	fi
+}
+
+function check_group () {
+	while :
+	do
+		read -p "Enter groupname [ex: general]: " group_name
+		group_err=0
+		
+		if [ ! $group_name ]; then
+			continue
+		fi
+		#Checking for special characters
+		if [[ $group_name == *['!'~@#\$%^\&*()_+]* ]]; then
+			echo "Group name can't contain special character(!@#$%^&*()_+). Please try again!!"
+			continue
+		fi
+		#Checking for group availibility
+		if ! grpexists_addgroup $group_name; then
+			continue
+		fi
+		if ! grpexists_slave_addgroup $group_name; then
+			continue
+		fi
+
+		break
+	done
+}
+
 
 function add_group () {
 	while :
@@ -356,7 +409,7 @@ function add_group () {
 		echo "#####################################"
 		echo ;
 		echo ;
-		set_groups
+		check_group
 
 		groupadd ${group_name}
 		$ACM groupadd ${group_name}

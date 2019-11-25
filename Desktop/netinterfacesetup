@@ -1,0 +1,108 @@
+#!/bin/bash
+
+# check for root
+[[ ${EUID} -ne 0 ]] && echo "::This script must be run as root::" && exit 1
+
+
+if [[ -f ~/.config/i3/config ]]; then
+    file=$(awk '{for (I=1;I<=NF;I++) if ($I == "--config") {print $(I+1)};}' ~/.config/i3/config)
+else
+    file=$(awk '{for (I=1;I<=NF;I++) if ($I == "--config") {print $(I+1)};}' /etc/i3/config)
+fi
+
+function isdigit () {
+	[ $# -eq 1 ] || return 1;
+	[[ $1 = *[^0-9]* ]] && return 1
+	return 0
+}
+
+function select_interface () {
+	echo "Please select the primary interface from the list(which will be shown in the i3 status bar)."
+	ip link | awk -F: '$0 !~ "lo|vir|^[^0-9]"{print $2a;getline}' | grep "$1" > /tmp/net_interface.txt
+	i=0
+	while read line
+	do
+		i=`expr $i + 1`
+		echo "($i) $line"
+	done</tmp/net_interface.txt
+    
+	while :
+	do
+		echo;read -p "Please type the number of the interface from the above list[ex: 1,2,...]: " intfc
+		if isdigit $intfc; then 
+			echo;
+		else
+			echo "$intfc is not a digit."
+			continue
+		fi
+		if [[ $intfc -gt $i || $intfc -lt 1 ]]; then
+			echo "Number $intfc is not in the list."
+			continue
+		else
+			break
+		fi
+	done
+	i=1
+	while read line
+	do
+		if [[ $i -eq $intfc ]]; then
+			#return $line
+			break
+		fi
+
+		i=`expr $i + 1`
+	done</tmp/net_interface.txt
+
+}
+
+### Ethernet Interface Setup ###
+eth_num=$(ip link | awk -F: '$0 !~ "lo|vir|^[^0-9]"{print $2a;getline}' | grep "e" | wc -l)
+
+if [[ $eth_num -gt 1 ]]; then
+    echo "Multiple Ethernet interface found!!!!"
+    select_interface e
+    ethernet_interface=$(echo $line)
+else
+	if [[ $eth_num -eq 0 ]]; then
+		ethernet_interface="No interface found"
+	else
+		ethernet_interface=$(ip link | awk -F: '$0 !~ "lo|vir|^[^0-9]"{print $2a;getline}' | grep "e")
+	fi
+fi
+
+
+### Wireless Interface Setup ###
+wl_num=$(ip link | awk -F: '$0 !~ "lo|vir|^[^0-9]"{print $2a;getline}' | grep "w" | wc -l)
+
+if [[ $wl_num -gt 1 ]]; then
+    echo "Multiple Wireless interface found!!!!"
+    select_interface w
+    wireless_interface=$(echo $line)
+else
+	if [[ $wl_num -eq 0 ]]; then
+		wireless_interface="No interface found"
+	else
+		wireless_interface=$(ip link | awk -F: '$0 !~ "lo|vir|^[^0-9]"{print $2a;getline}' | grep "w")
+	fi
+fi
+
+echo "Ethernet: $ethernet_interface"
+echo "Wireless: $wireless_interface"
+
+if [[ ! $ethernet_interface = "No interface found" ]]; then
+    current_enp=$(awk '{for (I=1;I<=NF;I++) if ($I == "ethernet") {print $(I+1)};}' $file)
+	sed -i -e "s/$current_enp/$ethernet_interface/g" $file
+fi
+
+if [[ ! $wireless_interface = "No interface found" ]]; then
+    current_wlp=$(awk '{for (I=1;I<=NF;I++) if ($I == "wireless") {print $(I+1)};}' $file)
+	sed -i -e "s/$current_wlp/$wireless_interface/g" $file
+fi
+echo "Current Ethernet: $current_enp"
+echo "Current Wireless: $current_wlp"
+
+
+#sed -i -e "s/enp2s0/$ethernet_interface/g" ./i3status.conf
+#sed -i -e "s/wlp2s0/$wireless_interface/g" ./i3status.conf
+
+echo "Network interface configuration is done. You can chage it by running \"netinterfacesetup\" command."

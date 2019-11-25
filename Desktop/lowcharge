@@ -1,0 +1,33 @@
+#!/bin/bash
+
+dup_lowcharge=$(ps -u $USER | grep "lowcharge" | wc -l)
+[[ $dup_lowcharge -gt 2 ]] && echo "Process is already running." && exit 1
+
+function warnning_message () {
+    gxmessage "                        ## LOW CHARGE ## " -center -title "Exit" -font "Dejavu Serif bold 10" -default "Cancel" -buttons "_Cancel":1,"_Log out":2,"_Reboot":3,"_Shut down":4 >/dev/null
+
+    case $? in
+        1)
+            echo "Exit";;
+        2)
+            i3-msg exit;;
+        3)
+            systemctl reboot;;
+        4)
+            systemctl poweroff;;
+    esac
+}
+
+while :
+do
+    sleep 5
+    stat=$(cat /sys/class/power_supply/BAT0/capacity)
+    chr=$(cat /sys/class/power_supply/BAT0/status)
+    echo $chr $stat
+    if [[ $chr == "Discharging" ]]; then
+        if [[ $stat -lt 10 ]]; then
+            mpv /opt/sound/Electronic_Chime.wav & warnning_message
+            sleep 300
+        fi
+    fi
+done

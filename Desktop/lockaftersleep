@@ -6,13 +6,19 @@ function do_lock () {
         echo "locking the screen"
         /usr/bin/lock
     else
-        echo "Lock is already running"
+        check_owner i3lock
+        if [[ $? == 0 ]]; then
+            echo "Lock is already running"
+        else
+            echo "locking the screen"
+            /usr/bin/lock
+        fi
     fi
 }
 
-dup_lockaftersleep=$(ps -A | grep "lockaftersleep" | wc -l)
+dup_lockaftersleep=$(ps -u $USER | grep "lockaftersleep" | wc -l)
 
-[[ $dup_lockaftersleep -gt 2 ]] && exit
+[[ $dup_lockaftersleep -gt 2 ]] && echo "Process already running." && exit 1
 
 time_var=$(date | awk '{print $4}')
 #echo $time_var | sed 's/:/\n/g'

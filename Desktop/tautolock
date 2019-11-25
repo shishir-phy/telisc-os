@@ -1,0 +1,152 @@
+#!/bin/bash
+
+dup_tautolock=$(ps -u $USER | grep "tautolock" | wc -l)
+
+[[ $dup_tautolock -gt 2 ]] && echo "Process is already running." && exit 1
+
+function idlet () {
+cat>/tmp/idletime.c<<EOF
+#include <time.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/extensions/scrnsaver.h>
+
+int GetIdleTime () {
+        time_t idle_time;
+        static XScreenSaverInfo *mit_info;
+        Display *display;
+        int screen;
+        mit_info = XScreenSaverAllocInfo();
+        if((display=XOpenDisplay(NULL)) == NULL) { return(-1); }
+        screen = DefaultScreen(display);
+        XScreenSaverQueryInfo(display, RootWindow(display,screen), mit_info);
+        idle_time = (mit_info->idle) / 1000;
+        XFree(mit_info);
+        XCloseDisplay(display);
+        return idle_time;
+    }
+
+int main() {
+        printf("%d\n", GetIdleTime());
+        return 0;
+    }
+EOF
+
+gcc -Wall /tmp/idletime.c -o /tmp/idletime -L/usr/X11R6/lib/ -lX11 -lXext -lXss
+DISPLAY=:0 /tmp/idletime
+}
+
+function check_idletime () {
+    idt=$(idlet)
+    lkt=`expr $1 \\* 60`
+    echo "IDLE-TIME: $idt $1 $lkt"
+    if [[ $idt -gt $lkt ]]; then
+        do_lock
+        #echo;
+    fi
+}
+function do_lock () {
+    lock_grep=$(ps -u $USER | grep "i3lock" | awk '{print $1}')
+    if [[ -z $lock_grep ]]; then
+        echo "locking the screen"
+        /usr/bin/lock
+    else
+        #check_owner i3lock
+        #if [[ $? == 0 ]]; then
+        #    echo "Lock is already running"
+        #else
+        #    echo "locking the screen"
+        #    /usr/bin/lock
+        #fi
+        echo "Lock is already running"
+    fi
+}
+
+function sleep_check () {
+    phour=$(echo $hour)
+    pmin=$(echo $min)
+    psec=$(echo $sec)
+
+    phour=`expr $phour + 0`
+    pmin=`expr $pmin + 0`
+    psec=`expr $psec + 0`
+
+    time_var=$(date | awk '{print $4}')
+    #echo $time_var | sed 's/:/\n/g'
+    hour=$(echo $time_var | cut -d':' -f1)
+    min=$(echo $time_var | cut -d':' -f2)
+    sec=$(echo $time_var | cut -d':' -f3)
+    usec=`expr $sec - 3`
+    if [[ $usec -lt 0 ]]; then
+        umin=`expr $min - 1`
+        usec=`expr $usec + 60`
+    else
+        umin=`expr $min + 0`
+    fi
+    if [[ $umin -lt 0 ]]; then
+        umin=`expr $umin + 60`
+        uhour=`expr $hour - 1`
+    else
+        uhour=`expr $hour + 0`
+    fi
+    if [[ $uhour -lt 0 ]]; then
+        uhour=`expr $uhour + 24`
+    fi
+
+    [[ $uhour -lt 10 ]] && uhour=$(echo "0$uhour")
+    [[ $umin -lt 10 ]] && umin=$(echo "0$umin")
+    [[ $usec -lt 10 ]] && usec=$(echo "0$usec")
+    [[ $phour -lt 10 ]] && phour=$(echo "0$phour")
+    [[ $pmin -lt 10 ]] && pmin=$(echo "0$pmin")
+    [[ $psec -lt 10 ]] && psec=$(echo "0$psec")
+
+    uhour_sec=`expr $uhour \\* 3600`
+    umin_sec=`expr $umin \\* 60`
+    phour_sec=`expr $phour \\* 3600`
+    pmin_sec=`expr $pmin \\* 60`
+
+    utime=`expr $uhour_sec + $umin_sec + $usec`
+    ptime=`expr $phour_sec + $pmin_sec + $psec`
+
+    diff=`expr $utime - $ptime`
+    [ "$diff" -lt 0 ] && ((diff *= -1))
+
+    echo $phour:$pmin:$psec $uhour:$umin:$usec $diff
+    if [[ $diff -lt 5 ]]; then
+        echo "MATCH"
+    else
+        echo -n "NOT MATCH: "
+        do_lock
+    fi
+}
+
+function player_check () {
+    stt=$(cat /proc/asound/card*/pcm*/sub*/status | grep RUNNING | awk '{print $2;}')
+
+    echo "$stt"
+    if [ ! -z "$stt" ]; then
+        date
+        echo "RUNNING"
+    else
+        date
+        echo "CLOSED"
+        check_idletime $1
+    fi
+}
+
+time_var=$(date | awk '{print $4}')
+#echo $time_var | sed 's/:/\n/g'
+hour=$(echo $time_var | cut -d':' -f1)
+min=$(echo $time_var | cut -d':' -f2)
+sec=$(echo $time_var | cut -d':' -f3)
+
+while :
+do
+    sleep 3
+    #check_idletime
+    player_check $1 >> /tmp/player_check_${USER}.txt
+    sleep_check >> /tmp/sleep_check_${USER}.txt
+done
+
